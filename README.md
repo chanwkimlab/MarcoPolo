@@ -6,7 +6,7 @@ MarcoPolo is a method to discover differentially expressed genes in single-cell 
 
 
 
-# Overview
+## Overview
 
 
 <img src="github_images/overview.png" width="700">
@@ -20,7 +20,7 @@ MarcoPolo is a method to discover differentially expressed genes in single-cell 
 |Human embryonic stem cells (The Koh et al.)|[https://chanwkimlab.github.io/MarcoPolo/hESC/](https://chanwkimlab.github.io/MarcoPolo/hESC/)|
 |Peripheral blood mononuclear cells (Zheng et al.)|[https://chanwkimlab.github.io/MarcoPolo/Zhengmix8eq/](https://chanwkimlab.github.io/MarcoPolo/Zhengmix8eq/)|
 
-# How to install
+## Installation
 
 Currently, `MarcoPolo` was tested only on Linux machines.
 Dependencies are as follows:
@@ -127,3 +127,20 @@ report.generate_report(input_path="scRNAdata",output_path="report/hESC",top_num_
 The function outputs the two files:
 - report/hESC/index.html (MarcoPolo HTML report)
 - report/hESC/voting.html (For each gene, this file shows the top 10 genes of which on/off information is similar to the gene.)
+
+
+## Citation
+If you use any part of this code or our data, please cite our
+[paper](https://doi.org/10.1093/nar/gkac216).
+```
+@article{kim2022marcopolo,
+  title={MarcoPolo: a method to discover differentially expressed genes in single-cell RNA-seq data without depending on prior clustering},
+  author={Kim, Chanwoo and Lee, Hanbin and Jeong, Juhee and Jung, Keehoon and Han, Buhm},
+  journal={Nucleic Acids Research},
+  year={2022}
+}
+```
+
+## Contact
+If you have any inquiries, please feel free to contact
+- [Chanwoo Kim](https://chanwoo.kim) (Seoul National University)
