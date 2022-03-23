@@ -143,4 +143,5 @@ If you use any part of this code or our data, please cite our
 
 ## Contact
 If you have any inquiries, please feel free to contact
-- [Chanwoo Kim](https://chanwoo.kim) (Seoul National University)
+- [Chanwoo Kim](https://chanwoo.kim) (Paul G. Allen School of Computer Science & Engineering @ the University of
+  Washington)
