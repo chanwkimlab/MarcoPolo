@@ -1,22 +1,11 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[4]:
-
-
 import numpy as np
 
 import torch
 import torch.nn as nn
 from torch.nn.parameter import Parameter
 
-torch.set_default_dtype(torch.float64) 
+torch.set_default_dtype(torch.float64)
 
-
-# In[5]:
-
-
-#from basic_tools import Cell_Dataset,Masked
 class Masked_Function(torch.autograd.Function):
     @staticmethod
     def forward(ctx, input, mask):
@@ -45,10 +34,7 @@ class Masked(nn.Module):
         return Masked_Function.apply(input, self.mask)
 
     def extra_repr(self):
-        return 'mask={}'.format(self.mask.shape)  
-
-
-# In[7]:
+        return 'mask={}'.format(self.mask.shape)
 
 
 class Poisson_logprob(nn.Module):
@@ -106,20 +92,17 @@ class Poisson_Function(torch.autograd.Function):
         return grad_Y, grad_X, grad_s, grad_delta_log, grad_beta, grad_mask
 
 
-# In[23]:
-
-
-class MarcoPolo_Model(nn.Module):
-    def __init__(self,Y,rho,X_col=5,delta_min=2):
+class MarcoPoloModel(nn.Module):
+    def __init__(self, Y, rho, X_col=5, delta_min=2):
         # Y,rho are needed for model parameter initialization
-        super(MarcoPolo_Model, self).__init__()
-        
-        #rho
-        self.masked=Masked(rho)
+        super(MarcoPoloModel, self).__init__()
+
+        # rho
+        self.masked = Masked(rho)
         self.init_paramter_rho(rho)
-        #delta
-        self.delta_log_min=np.log(delta_min) #
-        self.delta_log=nn.Parameter(torch.Tensor(np.ones(rho.shape)),requires_grad=True) # (C,G)        
+        # delta
+        self.delta_log_min = np.log(delta_min)  #
+        self.delta_log = nn.Parameter(torch.Tensor(np.ones(rho.shape)), requires_grad=True)  # (C,G)
         self.init_parameter_delta_min(delta_min)
         #beta
         self.beta=nn.Parameter(torch.Tensor(np.ones((X_col,Y.shape[1]))),requires_grad=True) # (P,G)
@@ -154,11 +137,8 @@ class MarcoPolo_Model(nn.Module):
             return gamma
 
 
-# In[22]:
-
-
 if __name__ == '__main__':
-    model=MarcoPolo_Model(Y=np.ones((5,5)),rho=np.ones((5,5)))
-    a=model(Y=torch.Tensor(np.ones((5,5))),X=torch.Tensor(np.ones((5,5))),s=torch.Tensor(np.ones((5,1))))
+    model = MarcoPoloModel(Y=np.ones((5, 5)), rho=np.ones((5, 5)))
+    a = model(Y=torch.Tensor(np.ones((5, 5))), X=torch.Tensor(np.ones((5, 5))), s=torch.Tensor(np.ones((5, 1))))
     a.backward()
 

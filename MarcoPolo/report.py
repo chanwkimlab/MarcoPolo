@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
 import pickle
 import sys
 import os
@@ -79,7 +76,6 @@ def DiscretePalette(n, palette=None):
             palette="polychrome"
     
     palette_array= palettes[palette]
-    #print(len(palette_array))
     assert n<=len(palette_array), "Not enough colours in specified palette"
 
     return np.array(palette_array)[np.arange(n)]
@@ -252,24 +248,9 @@ def generate_report(input_path,output_path,top_num_table=1000,top_num_figure=100
                         'lfc']].round(2)    
 
     else:
-        raise    
+        raise
 
-    """
-    try:
-        os.mkdir('{}'.format(report_path),exist_ok=True)
-    except:
-        print('already exists')
 
-    try:
-        os.mkdir('{}/plot_image'.format(report_path))
-    except:
-        print('already exists')
-
-    try:
-        os.mkdir('{}/assets'.format(report_path))
-    except:
-        print('already exists')
-    """
 
     #shutil.copy('report/template/index.html', 'report/{}/index.html'.format(dataset_name_path))
     
@@ -333,7 +314,7 @@ def generate_report(input_path,output_path,top_num_table=1000,top_num_figure=100
                    ax=ax,s=25,alpha=1,edgecolor='None'
                    )#,)#,s=40,palette=plt.cm.rainbow)#,linewidth=0.3)    
 
-    #plt.legend('')
+
     ax.get_legend().remove()
     ax.set_ylabel(' ')
     ax.set_xlabel(' ')
@@ -518,8 +499,8 @@ def generate_report(input_path,output_path,top_num_table=1000,top_num_figure=100
 
                 #sns.distplot(a=exp_data[iter_idx][gamma_argmax_list[iter_idx]!=0],kde=False,color=plt.rcParams['axes.prop_cycle'].by_key()['color'][1],ax=ax)
                 #ax.axvline(x=1,linewidth=10)
-                #plt.Line2D([0.5,0.5],[1,1], transform=fig.transFigure, color="black")
-                #ax.axvspan(0.8, 0.9, transform=fig.transFigure,clip_on=False) 
+                # plt.Line2D([0.5,0.5],[1,1], transform=fig.transFigure, color="black")
+                # ax.axvspan(0.8, 0.9, transform=fig.transFigure,clip_on=False)
 
         plt.savefig('{}/plot_image/{}.png'.format(report_path,iter_idx),dpi=60,bbox_inches='tight')
         #plt.show()

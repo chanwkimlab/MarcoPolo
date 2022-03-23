@@ -1,0 +1,8 @@
+numpy~=1.19.2
+torch~=1.4.0
+pandas~=1.2.0
+matplotlib~=3.3.4
+rpy2~=3.4.2
+scikit-learn~=0.24.1
+scipy~=1.6.0
+Jinja2~=2.11.2

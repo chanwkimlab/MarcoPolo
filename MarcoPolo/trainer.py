@@ -1,17 +1,8 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[2]:
-
-
 import datetime
 
 import torch
 
-torch.set_default_dtype(torch.float64) 
-
-
-# In[4]:
+torch.set_default_dtype(torch.float64)
 
 
 def run_EM_trick(model, optimizer, cell_dataloader, device, EM_ITER_MAX, M_ITER_MAX, LL_diff_tolerance, Q_diff_tolerance, verbose=True):
