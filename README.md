@@ -75,7 +75,12 @@ BiocManager::install("SingleCellExperiment")
 
 # Getting started
 
-1. If you have a Seurat object `seurat_object`, you can save it to a Python-readable file format as follows. Files with prefix `scRNAdata` are generated
+1. Converting scRNA-seq dataset you have to python-compatible file format.
+
+If you have a Seurat object `seurat_object`, you can save it to a Python-readable file format using the following R
+codes. Sample data is included in the `example` directory.
+
+We are also working on directly supporting AnnData format, which the `scanpy` package is based on. Please wait.
 
 ```
 save_sce <- function(sce,path,lowdim='TSNE'){
@@ -99,11 +104,12 @@ save_sce <- function(sce,path,lowdim='TSNE'){
 }
 
 sce_object <- as.SingleCellExperiment(seurat_object)
-save_sce(sce_object, 'scRNAdata')
-
+save_sce(sce_object, 'example/sample_data')
 ```
 
-2. Run MarcoPolo
+2. Running MarcoPolo
+
+Please use the same path argument you used for running the `save_sce` function above.
 
 ```
 import MarcoPolo.QQscore as QQ
@@ -115,23 +121,33 @@ allscore=summarizer.save_MarcoPolo(input_path=path,
                                    output_path=path)
 ```
 
-3. Generate MarcoPolo HTML report
+3. Generating MarcoPolo HTML report
 ```
 import MarcoPolo.report as report
 report.generate_report(input_path="scRNAdata",output_path="report/hESC",top_num_table=1000,top_num_figure=1000)
 ```
+
 - Note
-    - User can specify the number of genes to include in the report file by setting the `top_num_table` and `top_num_figure` parameters.
-    - If there are any two genes with the same MarcoPolo score, a gene with a larger fold change value is prioritized.
+  - User can specify the number of genes to include in the report file by setting the `top_num_table`
+    and `top_num_figure` parameters.
+  - If there are any two genes with the same MarcoPolo score, a gene with a larger fold change value is prioritized.
 
 The function outputs the two files:
-- report/hESC/index.html (MarcoPolo HTML report)
-- report/hESC/voting.html (For each gene, this file shows the top 10 genes of which on/off information is similar to the gene.)
 
+- report/hESC/index.html (MarcoPolo HTML report)
+- report/hESC/voting.html (For each gene, this file shows the top 10 genes of which on/off information is similar to the
+  gene.)
+
+## To-dos
+
+- [ ] supporting `AnnData` format file, which is used by `scanpy`
+- [ ] building colab running environment
 
 ## Citation
+
 If you use any part of this code or our data, please cite our
 [paper](https://doi.org/10.1093/nar/gkac216).
+
 ```
 @article{kim2022marcopolo,
   title={MarcoPolo: a method to discover differentially expressed genes in single-cell RNA-seq data without depending on prior clustering},
