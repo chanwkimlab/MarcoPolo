@@ -78,9 +78,9 @@ BiocManager::install("SingleCellExperiment")
 1. Converting scRNA-seq dataset you have to python-compatible file format.
 
 If you have a Seurat object `seurat_object`, you can save it to a Python-readable file format using the following R
-codes. Sample data is included in the `example` directory.
+codes. An example output by the function is in the `example` directory with the prefix `sample_data`. The data has 1,000
+cells and 1,500 genes in it.
 
-We are also working on directly supporting AnnData format, which the `scanpy` package is based on. Please wait.
 
 ```
 save_sce <- function(sce,path,lowdim='TSNE'){
@@ -140,7 +140,7 @@ The function outputs the two files:
 
 ## To-dos
 
-- [ ] supporting `AnnData` format file, which is used by `scanpy`
+- [ ] supporting `AnnData` object, which is used by `scanpy` by default.
 - [ ] building colab running environment
 
 ## Citation
