@@ -109,7 +109,8 @@ save_sce(sce_object, 'example/sample_data')
 
 2. Running MarcoPolo
 
-Please use the same path argument you used for running the `save_sce` function above.
+Please use the same path argument you used for running the `save_sce` function above. You can incorporate covariate -
+denoted as ß in the paper - in modeling the read counts by setting the `Covar` parameter.
 
 ```
 import MarcoPolo.QQscore as QQ
