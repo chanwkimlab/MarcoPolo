@@ -1,18 +1,14 @@
-*
-datasets/
-report/*
-!docs/*
-!report/template
-!*.ipynb
-!*.R
-!*.py
-!*.sh
-!*.csh
-!*.md
-!*.doc
-!*.csv
+results/*
+wandb/*
 
-experiments
-!experiments/*
+### Python ###
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
 
-!MarcoPolo/*
+### PyCharm ###
+.idea
+
+### Jupyter Notebook ###
+.ipynb_checkpoints
