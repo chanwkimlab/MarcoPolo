@@ -22,17 +22,14 @@ MarcoPolo is a method to discover differentially expressed genes in single-cell 
 |Peripheral blood mononuclear cells (Zheng et al.)|[https://chanwkimlab.github.io/MarcoPolo/Zhengmix8eq/](https://chanwkimlab.github.io/MarcoPolo/Zhengmix8eq/)|
 
 
-
-## Usage
-
-### Dataset preparation
+## Dataset preparation
 MarcoPolo works jointly with [AnnData](https://anndata.readthedocs.io/), a flexible and efficient data format for scRNA-seq data widely used in python community. This enables MarcoPolo to seamlessly work with other popular single cell software packages such as [scanpy](https://scanpy.readthedocs.io/), or more broadly, other packages included in the [scverse](https://scverse.org/projects/) project, etc. 
 
 You should prepare your scRNA-seq data in AnnData object before running MarcoPolo.
 Please refer to the [AnnData-Getting started](https://anndata-tutorials.readthedocs.io/en/latest/getting-started.html) to get to know more about AnnData.
 If your data is in seurat object, you can very easily convert it to AnnData following the instructions [here](https://satijalab.org/seurat/articles/conversion_vignette.html).
 
-### How to run MarcoPolo on Google Colab 
+## How to run MarcoPolo on Google Colab 
 The easiest way to use MarcoPolo is to use Google Colab: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/chanwkimlab/MarcoPolo/blob/main/notebooks/tutorial.ipynb)
 
 Google colab is a free cloud-based environment for running Python code. Colab allows you to execute MarcoPolo in your browser without any configurations and GPU resources on your end.
@@ -48,8 +45,8 @@ The function outputs the two files:
 - report/hESC/voting.html (For each gene, this file shows the top 10 genes of which on/off information is similar to the
   gene.)
 
-### How to run MarcoPolo on your local machine
-#### How to install MarcoPolo
+## How to run MarcoPolo on your local machine
+### How to install MarcoPolo
 We recommend using the following pipeline to install MarcoPolo.
 1. Anaconda
 
@@ -70,7 +67,7 @@ You can simply install MarcoPolo by using the `pip` command:
 ```bash
 pip install marcopolo-pytorch
 ```
-#### How to get an updated version of MarcoPolo
+### How to get an updated version of MarcoPolo
 You can simply update MarcoPolo by using the `pip` command:
 ```bash
 pip install marcopolo-pytorch --upgrade
