@@ -13,14 +13,16 @@ MarcoPolo is a method to discover differentially expressed genes in single-cell 
 
 
 `MarcoPolo` is a novel clustering-independent approach to identifying DEGs in scRNA-seq data. MarcoPolo identifies informative DEGs without depending on prior clustering, and therefore is robust to uncertainties from clustering or cell type assignment. Since DEGs are identified independent of clustering, one can utilize them to detect subtypes of a cell population that are not detected by the standard clustering, or one can utilize them to augment HVG methods to improve clustering. An advantage of our method is that it automatically learns which cells are expressed and which are not by fitting the bimodal distribution. Additionally, our framework provides analysis results in the form of an HTML file so that researchers can conveniently visualize and interpret the results.
-## Demo
+
+Demo
+
 |Datasets|URL|
 |:---|:---|
 |Human liver cells (MacParland et al.)|[https://chanwkimlab.github.io/MarcoPolo/HumanLiver/](https://chanwkimlab.github.io/MarcoPolo/HumanLiver/)|
 |Human embryonic stem cells (The Koh et al.)|[https://chanwkimlab.github.io/MarcoPolo/hESC/](https://chanwkimlab.github.io/MarcoPolo/hESC/)|
 |Peripheral blood mononuclear cells (Zheng et al.)|[https://chanwkimlab.github.io/MarcoPolo/Zhengmix8eq/](https://chanwkimlab.github.io/MarcoPolo/Zhengmix8eq/)|
 
-## How to install
+## How to install MarcoPolo
 We recommend using the following pipeline to install MarcoPolo.
 1. Anaconda
 
@@ -41,7 +43,7 @@ You can simply install MarcoPolo by using the `pip` command:
 ```bash
 pip install marcopolo-pytorch
 ```
-## How to update
+## How to get an updated version of MarcoPolo
 You can simply update MarcoPolo by using the `pip` command:
 ```bash
 pip install <package_name> --upgrade
@@ -50,7 +52,7 @@ pip install <package_name> --upgrade
 ## Usage
 
 ### Dataset preparation
-MarcoPolo works jointly with [AnnData](https://anndata.readthedocs.io/), a flexible and efficient data format for scRNA-seq data widely used in python community. This enables MarcoPolo to seamlessly work with other single cell software packages such as [scanpy](https://scanpy.readthedocs.io/), or more broadly, other packages included in the [scverse](https://scverse.org/projects/) project, etc. 
+MarcoPolo works jointly with [AnnData](https://anndata.readthedocs.io/), a flexible and efficient data format for scRNA-seq data widely used in python community. This enables MarcoPolo to seamlessly work with other popular single cell software packages such as [scanpy](https://scanpy.readthedocs.io/), or more broadly, other packages included in the [scverse](https://scverse.org/projects/) project, etc. 
 
 You should prepare your scRNA-seq data in AnnData object before running MarcoPolo.
 Please refer to the [AnnData-Getting started](https://anndata-tutorials.readthedocs.io/en/latest/getting-started.html) to get to know more about AnnData.
