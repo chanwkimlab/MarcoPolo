@@ -29,7 +29,9 @@ You should prepare your scRNA-seq data in AnnData object before running MarcoPol
 Please refer to the [AnnData-Getting started](https://anndata-tutorials.readthedocs.io/en/latest/getting-started.html) to get to know more about AnnData.
 If your data is in seurat object, you can very easily convert it to AnnData following the instructions [here](https://satijalab.org/seurat/articles/conversion_vignette.html).
 
-## How to run MarcoPolo on Google Colab 
+As MarcoPolo runs on raw count data, anndata should contain the raw count data in `.X`. The structure of Anndata is described [here](https://anndata.readthedocs.io/en/latest/generated/anndata.AnnData.html). 
+
+## Running MarcoPolo on Google Colab 
 The easiest way to use MarcoPolo is to use Google Colab: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/chanwkimlab/MarcoPolo/blob/main/notebooks/tutorial.ipynb)
 
 Google colab is a free cloud-based environment for running Python code. Colab allows you to execute MarcoPolo in your browser without any configurations and GPU resources on your end.
@@ -45,7 +47,7 @@ The function outputs the two files:
 - report/hESC/voting.html (For each gene, this file shows the top 10 genes of which on/off information is similar to the
   gene.)
 
-## How to run MarcoPolo on your local machine
+## Running MarcoPolo on your local machine
 ### How to install MarcoPolo
 We recommend using the following pipeline to install MarcoPolo.
 1. Anaconda
