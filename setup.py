@@ -16,6 +16,7 @@ setup(
     'pytorch'
   ],
   install_requires=[
+    'tqdm',
     'einops>=0.3',
     'numpy>=1.19.2',
     'torch>=1.4.0',
@@ -23,8 +24,11 @@ setup(
     'scikit-learn>=0.24.1',
     'scipy>=1.6.1',
     'matplotlib>=3.3.0',
+    'seaborn>=0.11.1',
     'Jinja2>=2.11.2',
     'anndata>=0.7.4',
+    'rpy2>=3.4.2',
+    'ipywidgets>=7.5.1',
   ],
   classifiers=[
     'Development Status :: 4 - Beta',
