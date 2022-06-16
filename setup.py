@@ -29,6 +29,7 @@ setup(
     'anndata>=0.7.4',
     'rpy2>=3.4.2',
     'ipywidgets>=7.5.1',
+    'scanpy>=1.9.0',
   ],
   classifiers=[
     'Development Status :: 4 - Beta',

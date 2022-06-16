@@ -1,5 +1,4 @@
 import datetime
-import sys
 import multiprocessing
 
 import anndata as ad
@@ -8,6 +7,7 @@ import pandas as pd
 from typing import Union, List, Tuple
 
 import torch
+import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -18,9 +18,9 @@ from MarcoPolo.regression.datasets import CellDataset
 
 torch.set_default_dtype(torch.float64)
 
-def fit_one_gene(model, optimizer, cell_dataloader, device, EM_ITER_MAX, M_ITER_MAX, LL_diff_tolerance, Q_diff_tolerance, verbose=True):
+def fit_one_gene(model: nn.Module, optimizer: optim.Adamax, cell_dataloader: DataLoader, device: str, EM_ITER_MAX: float, M_ITER_MAX:float, LL_diff_tolerance:float, Q_diff_tolerance:float, verbose:bool=True):
     """
-    Run EM trick algorithm with EM_ITER_MAX iterations.
+    Run EM trick algorithm.
     Args:
         model:
         optimizer:
@@ -111,8 +111,9 @@ def fit_one_gene(model, optimizer, cell_dataloader, device, EM_ITER_MAX, M_ITER_
 
 
 def fit_multiple_genes(Y: np.array, X: np.array, s: np.array,
-                       num_cluster_list: List, learning_rate: float, fit_one_gene_parameters: dict, device: str, start_gene_idx=None, end_gene_idx=None, verbose: bool=False):
+                       num_cluster_list: List, learning_rate: float, fit_one_gene_parameters: dict, device: str, start_gene_idx: Union[None, int]=None, end_gene_idx: Union[None, int]=None, verbose: bool=False):
     """
+    Fit multiple genes.
 
     Args:
         Y (np.array): (cell, gene)
@@ -121,20 +122,21 @@ def fit_multiple_genes(Y: np.array, X: np.array, s: np.array,
         num_cluster_list (list):
         learning_rate (float):
         fit_one_gene_parameters (dict):
+        start_gene_idx (Union[None, int]):
+        end_gene_idx (Union[None, int]):
         device (str):
         verbose (bool):
 
     Returns:
+        regression_result (dict):
 
     """
 
-    #return {"a":[4,5,6], "b":[1,2,3]}
-
     Y_select= Y[:, start_gene_idx:end_gene_idx]
-    #print(type(multiprocessing.current_process()._identity[0]), multiprocessing.current_process()._identity, multiprocessing.current_process()._identity[0]==0)
+
     if len(multiprocessing.current_process()._identity) == 0 or multiprocessing.current_process()._identity[0] == 1:
-        print('num_cluster_list', num_cluster_list)
-        print('Y: {} X: {} s: {}'.format(Y_select.shape, X.shape, s.shape))
+        print(f'The numbers of clusters to test: {num_cluster_list}')
+        print(f'Y: {Y.shape} X: {X.shape} s: {s.shape}')
     
     device=torch.device(device)
     
@@ -148,7 +150,7 @@ def fit_multiple_genes(Y: np.array, X: np.array, s: np.array,
     delta_log_cluster={}
     beta_cluster={}
     
-    for num_cluster in num_cluster_list:
+    for idx, num_cluster in enumerate(num_cluster_list):
         gamma_list=[]
         
         Q_list=[]
@@ -160,8 +162,8 @@ def fit_multiple_genes(Y: np.array, X: np.array, s: np.array,
         beta_list=[]
 
         if len(multiprocessing.current_process()._identity)==0 or multiprocessing.current_process()._identity[0]==1:
-            print(f'Fitting with {num_cluster} cluster{num_cluster > 1 and "s" or ""}')
-            tbar=tqdm(np.arange(Y_select.shape[1]), desc='Completed genes:')
+            print(f'({idx}) Fitting with {num_cluster} cluster(s)')
+            tbar=tqdm(np.arange(Y_select.shape[1]), desc='Progress')
         else:
             tbar=np.arange(Y_select.shape[1])
 
@@ -177,13 +179,13 @@ def fit_multiple_genes(Y: np.array, X: np.array, s: np.array,
                 model.init_parameter_delta_min(0)
                 model.init_paramter_Y(Y_select[:, iter_idx:iter_idx + 1])
             optimizer = optim.Adamax(model.parameters(),lr=learning_rate)#,betas=(0.92, 0.999))
-            gamma_new, Q_new, LL_new, em_idx_max, m_idx_max=fit_one_gene(model=model, optimizer=optimizer, cell_dataloader=cell_dataloader, device=device,
+            gamma, Q, LL, em_idx_max, m_idx_max=fit_one_gene(model=model, optimizer=optimizer, cell_dataloader=cell_dataloader, device=device,
                                                                          **fit_one_gene_parameters, verbose=verbose)
             
-            gamma_list.append(gamma_new.cpu().numpy())
+            gamma_list.append(gamma.cpu().numpy())
             
-            Q_list.append(Q_new.detach().cpu().numpy())
-            LL_list.append(LL_new.detach().cpu().numpy())
+            Q_list.append(Q.detach().cpu().numpy())
+            LL_list.append(LL.detach().cpu().numpy())
             em_idx_max_list.append(em_idx_max)
             m_idx_max_list.append(m_idx_max)
             
@@ -207,11 +209,11 @@ def fit_multiple_genes(Y: np.array, X: np.array, s: np.array,
                                                m_idx_max_cluster[num_cluster]], index=['Q','LL','em_idx_max','m_idx_max']).T
                     for num_cluster in num_cluster_list}
 
-    
-    return {"gamma_list_cluster": gamma_cluster,
-            "delta_log_cluster": delta_log_cluster,
-            "beta_cluster": beta_cluster,
-            "result_cluster": result_cluster,}
+    regression_result={"gamma_list_cluster": gamma_cluster,
+                       "delta_log_cluster": delta_log_cluster,
+                       "beta_cluster": beta_cluster,
+                       "result_cluster": result_cluster,}
+    return regression_result
 
 
 def run_regression(adata: ad.AnnData, size_factor_key: Union[str, None], covariates=None,
@@ -219,10 +221,11 @@ def run_regression(adata: ad.AnnData, size_factor_key: Union[str, None], covaria
                    EM_ITER_MAX=20, M_ITER_MAX=10000, LL_diff_tolerance=1e-4, Q_diff_tolerance=1e-4,
                    device='cuda:{}'.format(0), num_threads=1, verbose=False):
     """
+    Run regression.
 
     Args:
         adata:
-        size_factor:
+        size_factor_key:
         output_path:
         covariates:
         num_cluster_list:
@@ -239,7 +242,7 @@ def run_regression(adata: ad.AnnData, size_factor_key: Union[str, None], covaria
 
     """
     if num_threads > 1 and device.startswith('cuda'):
-        print(f"<INFO> Currently, {num_threads} threads are being used for regression. If you encounter any memory issues, try to set num_threads to 1.")
+        print(f"<INFO> Currently, you are using {num_threads} threads for regression. If you encounter any memory issues, try to set `num_threads` to 1.")
 
     expression_matrix=adata.X # (cell, gene)
     if not type(expression_matrix)==np.ndarray:
@@ -266,48 +269,39 @@ def run_regression(adata: ad.AnnData, size_factor_key: Union[str, None], covaria
         gene_per_thread= expression_matrix.shape[1] // num_threads
         gene_thread_split= [(gene_per_thread*i, gene_per_thread*(i+1)) for i in range(num_threads - 1)] + [(gene_per_thread * (num_threads - 1), expression_matrix.shape[1])]
 
-
-        # fit_result_thread=pool.starmap(fit_multiple_genes, tqdm.tqdm([(expression_matrix[:, start_gene_idx:end_gene_idx],
-        #                                                     covariate_matrix[:],
-        #                                                     cell_size_factor[:],
-        #                                                     num_cluster_list,
-        #                                                     learning_rate,
-        #                                                     fit_one_gene_parameters,
-        #                                                     device,
-        #                                                     verbose) for start_gene_idx, end_gene_idx in gene_thread_split]))
         multiprocessing.freeze_support()
         fit_result_thread=pool.starmap(fit_multiple_genes, [(expression_matrix,
-                                                                       covariate_matrix[:],
-                                                                       cell_size_factor[:],
-                                                                       num_cluster_list,
-                                                                       learning_rate,
-                                                                       fit_one_gene_parameters,
-                                                                       device,
-                                                                       start_gene_idx,
-                                                                       end_gene_idx,
-                                                                       verbose) for start_gene_idx, end_gene_idx in gene_thread_split])
+                                                               covariate_matrix[:],
+                                                               cell_size_factor[:],
+                                                               num_cluster_list,
+                                                               learning_rate,
+                                                               fit_one_gene_parameters,
+                                                               device,
+                                                               start_gene_idx,
+                                                               end_gene_idx,
+                                                               verbose) for start_gene_idx, end_gene_idx in gene_thread_split])
 
         pool.close()
 
-        fit_result={}
+        regression_result={}
 
         for fit_result_thread in fit_result_thread[:]:
             for category, value_cluster in fit_result_thread.items():
                 for num_cluster, value in value_cluster.items():
                     if isinstance(value, list):
-                        fit_result[category][num_cluster]=fit_result.setdefault(category, {}).get(num_cluster, []) + value
+                        regression_result[category][num_cluster]=regression_result.setdefault(category, {}).get(num_cluster, []) + value
                     elif isinstance(value, pd.DataFrame):
-                        fit_result[category][num_cluster] = fit_result.setdefault(category, {}).get(num_cluster, []) + [value.reset_index()]
+                        regression_result[category][num_cluster] = regression_result.setdefault(category, {}).get(num_cluster, []) + [value.reset_index()]
                     else:
                         raise ValueError("Unknown type of value: {}".format(type(value)))
 
-        for category in fit_result.keys():
-            for num_cluster in fit_result[category].keys():
-                if isinstance(fit_result[category][num_cluster][0], pd.DataFrame):
-                    fit_result[category][num_cluster]=pd.concat(fit_result[category][num_cluster]).reset_index()
+        for category in regression_result.keys():
+            for num_cluster in regression_result[category].keys():
+                if isinstance(regression_result[category][num_cluster][0], pd.DataFrame):
+                    regression_result[category][num_cluster]=pd.concat(regression_result[category][num_cluster]).reset_index()
 
     else:
-        fit_result=fit_multiple_genes(Y=expression_matrix[:, :],
+        regression_result=fit_multiple_genes(Y=expression_matrix[:, :],
                                       X=covariate_matrix[:],
                                       s=cell_size_factor[:],
                                       num_cluster_list=num_cluster_list,
@@ -316,7 +310,8 @@ def run_regression(adata: ad.AnnData, size_factor_key: Union[str, None], covaria
                                       device=device,
                                       verbose=verbose)
 
-    return fit_result
+
+    return regression_result
 
 
 if __name__ == '__main__':

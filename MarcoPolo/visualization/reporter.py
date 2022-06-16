@@ -1,19 +1,18 @@
-import sys
 import os
-    
-import numpy as np
-import pandas as pd    
-
-from scipy.io import mmread
-
-import matplotlib.pyplot as plt
-
 import shutil
-from jinja2 import Template
 
+import numpy as np
+import pandas as pd
+import anndata as ad
+import matplotlib.pyplot as plt
+import seaborn as sns
+from jinja2 import Template
+from tqdm import tqdm
+from typing import Union, List, Tuple
+from pathlib import Path
 import MarcoPolo.utils
 
-def DiscretePalette(n, palette=None):
+def get_discrete_palette(n, palette=None):
     """
     Porting of https://github.com/satijalab/seurat/blob/b51801bc4b1a66aed5456473c9fe0be884994c93/R/visualization.R#L2686
     Generate a list of colors that are well separated with one another.
@@ -74,227 +73,101 @@ def DiscretePalette(n, palette=None):
     return np.array(palette_array)[np.arange(n)]
 
 
-
-def generate_report(input_path,output_path,top_num_table=1000,top_num_figure=1000,output_mode='pub',gene_info_path='https://ftp.ncbi.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz',mode=2):
+def annotate_gene_info(gene_scores, gene_query_list, gene_info, by):
     """
-    Generate HTML report.
-    
-    :param input_path str: input file path
-    :param output_path str: output file path
-    :param top_num_table int: number of genes to be shown in HTML report
-    :param top_num_figure int: number of genes to make plots
-    :param output_mode str: 'pub' is preferred
-    :param gene_info_path str: gene info path
-    :param mode int: default=2
-    
-    """        
-    
-    path=input_path
-    report_path=output_path
-    
-    
-    print("------Loading dataset------")
-    exp_data=mmread('{}.data.counts.mm'.format(path)).toarray().astype(float)
-    with open('{}.data.col'.format(path),'r') as f: exp_data_col=[i.strip().strip('"') for i in f.read().split()]
-    with open('{}.data.row'.format(path),'r') as f: exp_data_row=[i.strip().strip('"') for i in f.read().split()]
-    assert exp_data.shape==(len(exp_data_row),len(exp_data_col))
-    assert len(set(exp_data_row))==len(exp_data_row)
-    assert len(set(exp_data_col))==len(exp_data_col)        
+    Annotate gene_scores matrix with gene info.
+    """
 
-    exp_data_meta=pd.read_csv('{}.metadatacol.tsv'.format(path),sep='\t')
+    gene_scores = gene_scores.copy()
+    gene_info_select_list = []
 
-    cell_size_factor=pd.read_csv('{}.size_factor.tsv'.format(path),sep='\t',header=None)[0].values.astype(float)#.reshape(-1,1)
+    column_list = ['Symbol', 'description', 'Other_designations', 'type_of_gene', 'dbXrefs']
 
-    x_data_intercept=np.array([np.ones(exp_data.shape[1])]).transpose()
-    x_data_null=np.concatenate([x_data_intercept],axis=1)
-    
-    
-    result_list,gamma_list_list,delta_log_list_list,beta_list_list= MarcoPolo.utils.read_QQscore(path, [1, mode])
-    
-    gamma_list=gamma_list_list[-1]    
-
-    gamma_argmax_list= MarcoPolo.utils.gamma_list_exp_data_to_gamma_argmax_list(gamma_list, exp_data)#gamma_argmax_list=QQ.gamma_list_to_gamma_argmax_list(gamma_list)
-    gamma_argmax_list,gamma_argmax_list.shape
-    
-    
-    # voting score
-    minorsize_list=np.sum(gamma_argmax_list==0,axis=1)
-    minorsize_cliplist= MarcoPolo.utils.gamma_argmax_list_to_minorsize_list_list(gamma_argmax_list)
-    intersection_list= MarcoPolo.utils.gamma_argmax_list_to_intersection_list(gamma_argmax_list)
-    intersectioncount_prop=((intersection_list/minorsize_cliplist))
-    intersectioncount_prop_top10=[np.arange(0,len(i))[i>=sorted(i)[-10]][:10] for i in intersectioncount_prop]
-    intersectioncount_threshold=((intersection_list/minorsize_cliplist)>0.7)
-    intersectioncount_thresholdcount=np.sum(intersectioncount_threshold,axis=1)
-    
-    allscore=pd.read_csv('{}.MarcoPolo.{}.rank.tsv'.format(path,mode),index_col=0,sep='\t')
-    
-    allscore_munge=allscore.copy()
-    allscore_munge['Gene ID']=exp_data_row
-    
-    allscore_munge['Voting_genes_top10']=[allscore_munge['Gene ID'][i].values for i in intersectioncount_prop_top10]
-    allscore_munge_voting=allscore_munge.copy()    
-    
-    if gene_info_path is not None:
-        print("------Annotating genes------")
-        
-        gene_info=pd.read_csv(gene_info_path,sep='\t')
-
-        by='ID' if 'ENS' in exp_data_row[0] else 'name'
-
-        gene_info_select_list=[]
-
-        column_list=['Symbol','description','Other_designations','type_of_gene','dbXrefs']
-
-        for idx, query in enumerate(exp_data_row):
-            if by=='ID':
-                gene_info_select=gene_info[gene_info['dbXrefs'].str.contains(query,regex=False)]
-            else:
-                gene_info_select=gene_info[gene_info['Symbol'].str.lower()==query.lower()]
-                if len(gene_info_select)==0:
-                    gene_info_select=gene_info[gene_info['Synonyms'].str.lower().str.contains(query.lower(),regex=False)]
-
-            if len(gene_info_select)>=1:
-                gene_info_select_list.append(gene_info_select[column_list].iloc[0])
-            else:
-                gene_info_select_list.append(pd.Series(index=column_list))
-                print(query,len(gene_info_select))
-
-            if idx%100==0:
-                sys.stdout.write('\r%0.2f%%' % (100.0 * (idx/len(exp_data_row))))
-                sys.stdout.flush()
-        gene_info_extract=pd.DataFrame(gene_info_select_list,index=np.arange(len(exp_data_row))) 
-    
-        assert len(gene_info_extract)==len(allscore_munge)
-        allscore_munge=allscore_munge.merge(right=gene_info_extract,left_index=True,right_index=True)   
-    #allscore_munge.to_csv('{}.MarcoPolo.{}.rank.munge.tsv'.format(path,mode),sep='\t')
-    
-    allscore_munge['img']=allscore_munge.apply(lambda x: '<img src="plot_image/{idx}.png" alt="{idx}">'.format(idx=x.name),axis=1)
-    
-    allscore_munge['Log2FC']=allscore_munge['lfc']/np.log10(2)
-    if output_mode=='report':
-        
-        allscore_munge=allscore_munge[[
-                                    'MarcoPolo_rank',
-                                    'Gene ID','Symbol',
-                                    'description', 'Other_designations', 'type_of_gene',
-                                    'Log2FC',
-                                    'MarcoPolo',
-                                    'QQratio', 'QQratio_rank',
-                                    'QQdiff', 'QQdiff_rank',
-                                    'votingscore', 'votingscore_rank',
-                                    'mean_0_all','mean_0_all_rank',
-                                    'PCvariance', 'PCvariance_rank',
-                                    'lfc', 'lfc_rank',
-                                    'minorsize','minorsize_rank',
-                                    'dbXrefs','img'
-                                   ]]
-
-        allscore_munge[['Log2FC',
-                        'QQratio', 
-                        'QQdiff', 
-                        'votingscore', 'votingscore_rank',
-                        'mean_0_all',
-                        'PCvariance',
-                        'lfc']]=\
-        allscore_munge[['Log2FC',
-                        'QQratio',
-                        'QQdiff', 
-                        'votingscore', 'votingscore_rank',
-                        'mean_0_all',
-                        'PCvariance',
-                        'lfc']].round(2)
-
-    elif output_mode=='pub':
-        if gene_info_path is None:
-            allscore_munge=allscore_munge[[
-                                        'MarcoPolo_rank',
-                                        'Gene ID',
-                                        'Log2FC',
-                                        'MarcoPolo',
-                                        'bimodalityscore_rank',
-                                        'votingscore_rank',
-                                        'proximityscore_rank',
-                                        'lfc', 'lfc_rank',
-                                        'minorsize','minorsize_rank',
-                                        'img'
-                                       ]]  
+    for idx, query in enumerate(tqdm(gene_query_list)):
+        if by == 'ID':
+            gene_info_select = gene_info[gene_info['dbXrefs'].str.contains(query, regex=False)]
         else:
-            allscore_munge=allscore_munge[[
-                                        'MarcoPolo_rank',
-                                        'Gene ID','Symbol',
-                                        'description', 'Other_designations', 'type_of_gene',
-                                        'Log2FC',
-                                        'MarcoPolo',
-                                        'bimodalityscore_rank',
-                                        'votingscore_rank',
-                                        'proximityscore_rank',
-                                        'lfc', 'lfc_rank',
-                                        'minorsize','minorsize_rank',
-                                        'dbXrefs','img'
-                                       ]]            
-            
-          
+            gene_info_select = gene_info[gene_info['Symbol'].str.lower() == query.lower()]
+            if len(gene_info_select) == 0:
+                gene_info_select = gene_info[gene_info['Synonyms'].str.lower().str.contains(query.lower(), regex=False)]
 
-        allscore_munge[['Log2FC',
-                        'lfc']]=\
-        allscore_munge[['Log2FC',
-                        'lfc']].round(2)    
+        if len(gene_info_select) >= 1:
+            gene_info_select_list.append(gene_info_select[column_list].iloc[0])
+        else:
+            gene_info_select_list.append(pd.Series(index=column_list))
+            print(query, len(gene_info_select))
 
-    else:
-        raise
-    
-    os.makedirs('{}'.format(report_path),exist_ok=True)
-    os.makedirs('{}/plot_image'.format(report_path),exist_ok=True)
-    os.makedirs('{}/assets'.format(report_path),exist_ok=True)
-    
-    shutil.copy(os.path.join(os.path.dirname(__file__), 'template/assets/scripts.js'), '{}/assets/scripts.js'.format(report_path))
-    shutil.copy(os.path.join(os.path.dirname(__file__), 'template/assets/styles.css'), '{}/assets/styles.css'.format(report_path))
-    shutil.copy(os.path.join(os.path.dirname(__file__), 'template/assets/details_open.png'), '{}/assets/details_open.png'.format(report_path))
-    shutil.copy(os.path.join(os.path.dirname(__file__), 'template/assets/details_close.png'), '{}/assets/details_close.png'.format(report_path))
-    shutil.copy(os.path.join(os.path.dirname(__file__), 'template/assets/mp.png'), '{}/assets/mp.png'.format(report_path))
-    shutil.copy(os.path.join(os.path.dirname(__file__), 'template/assets/mp_white.png'), '{}/assets/mp_white.png'.format(report_path))
-    shutil.copy(os.path.join(os.path.dirname(__file__), 'template/assets/mp_white_large_font.png'), '{}/assets/mp_white_large_font.png'.format(report_path))
-    
+    gene_info_extract = pd.DataFrame(gene_info_select_list, index=np.arange(len(gene_query_list)))
+
+
+    assert len(gene_info_extract) == len(gene_scores), "gene_info_extract and gene_scores have different length"
+    gene_scores = gene_scores.merge(right=gene_info_extract, left_index=True, right_index=True)
+
+    return gene_scores
+
+
+def generate_html_file(output_dir, gene_scores, num_genes, num_cells, top_num_html=1000):
+    os.makedirs('{}'.format(output_dir), exist_ok=True)
+    os.makedirs('{}/plot_image'.format(output_dir), exist_ok=True)
+    os.makedirs('{}/assets'.format(output_dir), exist_ok=True)
+
+    shutil.copy(os.path.join(os.path.dirname(__file__), 'template/assets/scripts.js'),
+                '{}/assets/scripts.js'.format(output_dir))
+    shutil.copy(os.path.join(os.path.dirname(__file__), 'template/assets/styles.css'),
+                '{}/assets/styles.css'.format(output_dir))
+    shutil.copy(os.path.join(os.path.dirname(__file__), 'template/assets/details_open.png'),
+                '{}/assets/details_open.png'.format(output_dir))
+    shutil.copy(os.path.join(os.path.dirname(__file__), 'template/assets/details_close.png'),
+                '{}/assets/details_close.png'.format(output_dir))
+    shutil.copy(os.path.join(os.path.dirname(__file__), 'template/assets/mp.png'),
+                '{}/assets/mp.png'.format(output_dir))
+    shutil.copy(os.path.join(os.path.dirname(__file__), 'template/assets/mp_white.png'),
+                '{}/assets/mp_white.png'.format(output_dir))
+    shutil.copy(os.path.join(os.path.dirname(__file__), 'template/assets/mp_white_large_font.png'),
+                '{}/assets/mp_white_large_font.png'.format(output_dir))
 
     with open(os.path.join(os.path.dirname(__file__), 'template/index.html'), 'r') as f:
-        template_read=f.read()
-    template = Template(source=template_read)  
+        template_read = f.read()
+    template = Template(source=template_read)
 
-    MarcoPolo_table=allscore_munge.sort_values("MarcoPolo_rank",ascending=True).set_index('MarcoPolo_rank').iloc[:top_num_table]
-    MarcoPolo_table.index+=1
-    MarcoPolo_table=MarcoPolo_table.to_html(classes="table table-bordered",table_id='dataTable')
+    MarcoPolo_table = gene_scores.sort_values("MarcoPolo_rank", ascending=True).set_index('MarcoPolo_rank').iloc[
+                      :top_num_html]
+    MarcoPolo_table.index += 1
+    MarcoPolo_table = MarcoPolo_table.to_html(classes="table table-bordered", table_id='dataTable')
 
-    MarcoPolo_table=MarcoPolo_table.replace('<table ','<table width="100%" cellspacing="0" ')
-    template_rendered=template.render(MarcoPolo_table=MarcoPolo_table,num_gene=exp_data.shape[0],num_cell=exp_data.shape[1])
+    MarcoPolo_table = MarcoPolo_table.replace('<table ', '<table width="100%" cellspacing="0" ')
+    template_rendered = template.render(MarcoPolo_table=MarcoPolo_table, num_gene=num_genes, num_cell=num_cells)
 
-    with open('{}/index.html'.format(report_path),'w') as f:
-        f.write(template_rendered)    
-        
-    allscore_munge_voting[['Gene ID','Voting_genes_top10']].to_html('{}/voting.html'.format(report_path))    
-    print("------Drawing figures------")
-    
-    exp_data_meta_transformed=exp_data_meta.copy()
+    with open('{}/index.html'.format(output_dir), 'w') as f:
+        f.write(template_rendered)
 
-    plt.rcParams["figure.figsize"] = (16,16)
-    plt.rcParams["font.size"] = 10
-    plt.rcParams['font.family']='Arial'
+def generate_image_files(expression_matrix, gamma_argmax_list, gene_scores, cell_meta_info, low_dim_key1, low_dim_key2, output_dir, top_num_image,
+                         cell_color_key=None,
+                         main_plot_s=25, main_plot_dpi=100, main_plot_font_size=10, main_plot_font_family='Arial',
+                         gene_plot_s=10, gene_plot_dpi=60, gene_plot_font_size=15, gene_plot_font_family='Arial',
+                         ):
+    print("Drawing figures")
+
+    plt.rcParams["figure.figsize"] = (16, 16)
+    plt.rcParams["font.size"] = main_plot_font_size
+    plt.rcParams['font.family'] = main_plot_font_family
 
     fig = plt.figure(figsize=(10, 10))
-    gs=fig.add_gridspec(10,10)
+    gs = fig.add_gridspec(10, 10)
 
-    ax=fig.add_subplot(gs[1:9,1:9])
+    ax = fig.add_subplot(gs[1:9, 1:9])
 
+    if cell_color_key is None:
+        plot_value = pd.Series("temp", index=cell_meta_info.index)
+    else:
+        plot_value = cell_meta_info[cell_color_key]
+    plot_value_unique = plot_value.unique().tolist()
 
-    plot_value=exp_data_meta_transformed['phenoid']
-    plot_value_unique=plot_value.unique().tolist()
-    plot_value_int=list(map(lambda x: plot_value_unique.index(x),plot_value))
-
-
-    scatterfig=sns.scatterplot(x="TSNE_1", y="TSNE_2",hue=plot_value,data=exp_data_meta_transformed,
-                    palette=DiscretePalette(len(plot_value_unique)).tolist() if plot_value.dtype==int else None,
-                   ax=ax,s=25,alpha=1,edgecolor='None'
-                   )
-
+    scatterfig = sns.scatterplot(x=low_dim_key1, y=low_dim_key2, hue=plot_value, data=cell_meta_info,
+                                 palette=get_discrete_palette(
+                                     len(plot_value_unique)).tolist() if plot_value.dtype == int else None,
+                                 ax=ax, s=main_plot_s, alpha=1, edgecolor='None'
+                                 )
 
     ax.get_legend().remove()
     ax.set_ylabel(' ')
@@ -303,139 +176,206 @@ def generate_report(input_path,output_path,top_num_table=1000,top_num_figure=100
     ax.set_xticks([])
     ax.set_yticks([])
 
-    for axis in ['top','bottom','left','right']:
+    for axis in ['top', 'bottom', 'left', 'right']:
         ax.spines[axis].set_linewidth(2)
 
-    plt.savefig('{}/plot_image/2D_Plot.png'.format(report_path),dpi=100,bbox_inches='tight')
+    plt.savefig('{}/plot_image/2D_Plot.png'.format(output_dir), dpi=main_plot_dpi, bbox_inches='tight')
     plt.show()
 
-    #%matplotlib inline
-    import matplotlib.gridspec as gridspec
-    import seaborn as sns
-
-
-    plt.rcParams["font.size"] = 15
-    plt.rcParams['font.family']='Arial'
+    plt.rcParams["font.size"] = gene_plot_font_size
+    plt.rcParams['font.family'] = gene_plot_font_family
     plt.ioff()
 
-    exp_data_corrected=(exp_data/cell_size_factor)
-    for count_idx, (iter_idx,row) in enumerate(allscore.sort_values('MarcoPolo',ascending=True).iloc[:].iterrows()):    
+    for count_idx, (iter_idx, row) in enumerate(tqdm(gene_scores.sort_values('MarcoPolo', ascending=True).iterrows(), total=top_num_image)):
+        if count_idx == top_num_image:
+            break
 
-        subplot_size=(1,1+1+1+1)
+        fig = plt.figure(figsize=(3 * 8, 6))
+        gs = fig.add_gridspec(6, 3 * 8)
+        subplot_list = [fig.add_subplot(gs[0:6, 0:6]),
+                        fig.add_subplot(gs[0:6, 6 + 2:6 + 2 + 6])]
 
-        fig = plt.figure(figsize=(3*8, 6)) 
-        gs=fig.add_gridspec(6,3*8)
-        subplot_list=[fig.add_subplot(gs[0:6,0:6]),
-                      fig.add_subplot(gs[0:6,6+2:6+2+6])]
+        exp_data_corrected_on = expression_matrix[iter_idx][gamma_argmax_list[iter_idx] == 0]
+        exp_data_corrected_off = expression_matrix[iter_idx][gamma_argmax_list[iter_idx] == 1]
 
-
-
-        exp_data_corrected_on=exp_data_corrected[iter_idx][gamma_argmax_list[iter_idx]==0]
-        exp_data_corrected_off=exp_data_corrected[iter_idx][gamma_argmax_list[iter_idx]==1]
-
-        bins_log=[np.power(1.2,i) for i in range(np.max([1,int(np.log(np.max([1,np.max(exp_data_corrected)]))/np.log(1.2))]))]
-        bins_log_on=[np.power(1.1,i) for i in range(
-            np.max([1,int(np.log(np.max([1,np.min(exp_data_corrected_on)]))/np.log(1.1))]),
-            np.max([1,int(np.log(np.max([1,np.max(exp_data_corrected_on)]))/np.log(1.1))])
-
-        )]
-        bins_log_off=[np.power(1.2,i) for i in range(np.max([1,int(np.log(np.max([1,np.max(exp_data_corrected_off)]))/np.log(1.2))]))]
+        bins_log = [np.power(1.2, i) for i in range(
+            np.max([1, int(np.log(np.max([1, np.max(expression_matrix)])) / np.log(1.2))]))]
 
         for idx in range(2):
-            ax=subplot_list[idx]
-            if idx==-1:
-                plot_value=np.log10(1+exp_data_corrected[iter_idx])
-
-                ax.title.set_text('tSNE')
-                sns.scatterplot(x="TSNE_1", y="TSNE_2",label=None,legend=None,
-                                hue=plot_value,data=exp_data_meta_transformed,ax=ax,s=15,linewidth=0.3,alpha=0.4,palette=plt.cm.Blues)#,palette=plt.cm.rainbow)#,linewidth=0.3)            
-            if idx==0:
-
-                plot_value=exp_data_meta_transformed['phenoid']
-                plot_value_unique=plot_value.unique().tolist()
-                plot_value_int=list(map(lambda x: plot_value_unique.index(x),plot_value))            
-
-                s=10
-                sns.scatterplot(x="TSNE_1", y="TSNE_2",hue=plot_value,data=exp_data_meta_transformed,
-                                palette=DiscretePalette(len(plot_value_unique)).tolist() if plot_value.dtype==int else None,
-                               ax=ax,alpha=0.3,edgecolor="None",
-                                s=s
-                               )
-                sns.scatterplot(x="TSNE_1", y="TSNE_2",data=exp_data_meta_transformed.loc[gamma_argmax_list[iter_idx]==0],ax=ax,
-                                edgecolor=[1,0,0,1],
+            ax = subplot_list[idx]
+            if idx == 0:
+                sns.scatterplot(x=low_dim_key1, y=low_dim_key2, hue=plot_value, data=cell_meta_info,
+                                palette=get_discrete_palette(
+                                    len(plot_value_unique)).tolist() if plot_value.dtype == int else None,
+                                ax=ax, alpha=0.3, edgecolor="None",
+                                s=gene_plot_s
+                                )
+                sns.scatterplot(x=low_dim_key1, y=low_dim_key2, data=cell_meta_info.loc[gamma_argmax_list[iter_idx] == 0],
+                                ax=ax,
+                                edgecolor=[1, 0, 0, 1],
                                 facecolors="None",
                                 linewidth=1,
-                                s=s,
+                                s=gene_plot_s,
                                 zorder=10
-                               )
-
-
-
+                                )
                 ax.title.set_text('On-Off in 2D plot')
                 ax.get_legend().remove()
 
-                ax.set_xlabel('Dim 1')            
-                ax.set_ylabel('Dim 2',labelpad=-10)
+                ax.set_xlabel('Dim 1')
+                ax.set_ylabel('Dim 2', labelpad=-10)
 
-                for axis in ['top','bottom','left','right']:
-                    ax.spines[axis].set_linewidth(1.5)              
+                for axis in ['top', 'bottom', 'left', 'right']:
+                    ax.spines[axis].set_linewidth(1.5)
 
-            elif idx==1:
+            elif idx == 1:
                 ax.title.set_text('Expression of Cells')
 
-                ax.hist(exp_data_corrected_on,bins=bins_log,label='On',color=(1,0,0,0.8))
-                ax.hist(exp_data_corrected_off,bins=bins_log,label='Off',color=(0.5,0.5,0.5,0.5))
+                ax.hist(exp_data_corrected_on, bins=bins_log, label='On', color=(1, 0, 0, 0.8))
+                ax.hist(exp_data_corrected_off, bins=bins_log, label='Off', color=(0.5, 0.5, 0.5, 0.5))
                 ax.set_xscale('log')
 
-                ax.set_ylabel('Cell Counts')                        
-                ax.set_xlabel('Expression count (size factor corrected)')
-
-                ax.spines['right'].set_visible(False)
-                ax.spines['top'].set_visible(False) 
-
-                leg=ax.legend(loc='upper left',
-                                    fontsize=15,
-                                    frameon=False,
-                                    bbox_to_anchor=(0.22, -0.15),
-                                    ncol=2,
-                                  handletextpad=0.2,
-                                      columnspacing=1.3,
-                                    markerscale=2.5)  
-                [rec.set_height(8) for rec in leg.get_patches()]
-                [rec.set_width(15) for rec in leg.get_patches()]
-                for axis in ['top','bottom','left','right']:
-                    ax.spines[axis].set_linewidth(2)             
-
-
-            elif idx==2:
-                ax.title.set_text('Expression of On Cells')
-                ax.hist(exp_data_corrected_on,bins=bins_log_on,color=(1,0,0,0.8))
-
-                ax.set_xscale('log')
-
-                ax.set_ylabel('Cell Counts')                        
-                ax.set_xlabel('Expression count (size factor corrected)')
-
-                ax.spines['right'].set_visible(False)
-                ax.spines['top'].set_visible(False)              
-
-            elif idx==3:
-                ax.title.set_text('Expression of Off Cells')
-                ax.hist(exp_data_corrected_off,bins=bins_log_off,color=(0.5,0.5,0.5,0.5))
-                ax.set_xscale('log')
-
-                ax.set_ylabel('Cell Frequency')                        
-                ax.set_xlabel('Expression count (size factor corrected)')
+                ax.set_ylabel('Cell Counts')
+                ax.set_xlabel('Expression count')
 
                 ax.spines['right'].set_visible(False)
                 ax.spines['top'].set_visible(False)
 
-        plt.savefig('{}/plot_image/{}.png'.format(report_path,iter_idx),dpi=60,bbox_inches='tight')
-        #plt.show()
+                leg = ax.legend(loc='upper left',
+                                fontsize=15,
+                                frameon=False,
+                                bbox_to_anchor=(0.22, -0.15),
+                                ncol=2,
+                                handletextpad=0.2,
+                                columnspacing=1.3,
+                                markerscale=2.5)
+                for rec in leg.get_patches():
+                    rec.set_height(8)
+                    rec.set_width(15)
+
+                for axis in ['top', 'bottom', 'left', 'right']:
+                    ax.spines[axis].set_linewidth(2)
+
+        plt.savefig('{}/plot_image/{}.png'.format(output_dir, iter_idx), dpi=gene_plot_dpi, bbox_inches='tight')
+
         plt.close(fig)
 
-        if count_idx==top_num_figure+1:
-            break
+
+def generate_report(adata: ad.AnnData, size_factor_key: Union[str, None], regression_result: dict, gene_scores: pd.DataFrame, output_dir: str,  low_dim_key1:str, low_dim_key2:str, cell_color_key=None, gene_info_path: str=None,
+                    top_num_html: int=1000, top_num_image: int=1000, mode=2, plot_parameters: dict=None):
+
+    """
+    Args:
+        adata:
+        size_factor_key:
+        regression_result:
+        gene_scores:
+        gene_info_path: 'https://ftp.ncbi.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz'
+        output_dir:
+        low_dim_key1:
+        low_dim_key2:
+        cell_color_key:
+        top_num_html: the number of top genes to show in the HTML report
+        top_num_image: the number of top genes to generate figures.
+        mode:
+        plot_parameters: {"main_plot_s": 25, "main_plot_dpi": 100, "main_plot_font_size": 10, "main_plot_font_family": 'Arial',
+                          "gene_plot_s": 10, "gene_plot_dpi": 60, "gene_plot_font_size": 15, "gene_plot_font_family": 'Arial'}
+
+    Returns:
+
+    """
+    expression_matrix = adata.X
+    num_cells=expression_matrix.shape[0]
+    num_genes=expression_matrix.shape[1]
+
+    gene_scores_munge=gene_scores.copy()
+    gene_scores_munge['Gene ID']=adata.var.index.values
+
+
+    output_dir=str(Path(output_dir) / "report")
+
+    ########################
+    # Assign cells to on-cells and off-cells
+    ########################
+    gamma_list = regression_result["gamma_list_cluster"][mode]
+    gamma_argmax_list = MarcoPolo.utils.gamma_list_expression_matrix_to_gamma_argmax_list(gamma_list, expression_matrix)
+
+    ########################
+    # Calculate voting score
+    ########################
+    #oncell_size_list = np.sum(gamma_argmax_list == 0, axis=1)
+    oncell_size_cliplist = MarcoPolo.utils.gamma_argmax_list_to_oncell_size_list_list(gamma_argmax_list)
+    intersection_list = MarcoPolo.utils.gamma_argmax_list_to_intersection_list(gamma_argmax_list)
+    intersectioncount_prop=((intersection_list/oncell_size_cliplist))
+    intersectioncount_prop_top10=[np.arange(0,len(i))[i>=sorted(i)[-10]][:10] for i in intersectioncount_prop]
+    
+    gene_scores_munge['Voting_genes_top10']=[gene_scores_munge['Gene ID'][i].values for i in intersectioncount_prop_top10]
+    gene_scores_munge_voting=gene_scores_munge.copy()    
+
+    ########################
+    # Annotate gene_scores with gene info
+    ########################
+    if gene_info_path is not None:
+        print(f"Annotating genes with the gene info {gene_info_path}")
+        
+        gene_info=pd.read_csv(gene_info_path,sep='\t')
+
+        by='ID' if 'ENS' in adata.var.index.values.tolist() else 'name'
+        annotate_gene_info(gene_scores=gene_scores_munge, gene_query_list=adata.var.index.values.tolist(), gene_info=gene_info, by=by)
+
+        gene_scores_munge['Log2FC']=(gene_scores_munge['lfc']/np.log10(2)).round(2)
+
+        gene_scores_munge=gene_scores_munge[[
+                                    'MarcoPolo_rank',
+                                    'Gene ID','Symbol',
+                                    'description', 'Other_designations', 'type_of_gene',
+                                    'Log2FC',
+                                    'MarcoPolo',
+                                    'bimodalityscore_rank',
+                                    'votingscore_rank',
+                                    'proximityscore_rank',
+                                    'minorsize','minorsize_rank',
+                                    'dbXrefs'
+                                   ]]
+        gene_scores_munge['img'] = gene_scores_munge.apply(lambda x: '<img src="plot_image/{idx}.png" alt="{idx}">'.format(idx=x.name), axis=1)
+
+    else:
+        gene_scores_munge['Log2FC'] = (gene_scores_munge['lfc'] / np.log10(2)).round(2)
+
+        gene_scores_munge=gene_scores_munge[[
+                                    'MarcoPolo_rank',
+                                    'Gene ID',
+                                    'Log2FC',
+                                    'MarcoPolo',
+                                    'bimodality_score_rank',
+                                    'voting_score_rank',
+                                    'proximity_score_rank',
+                                    'minorsize','minorsize_rank',
+                                   ]]
+        gene_scores_munge['img']=gene_scores_munge.apply(lambda x: '<img src="plot_image/{idx}.png" alt="{idx}">'.format(idx=x.name),axis=1)
+
+
+    ########################
+    # Generate table files
+    ########################
+    print(f"Generating table files")
+    generate_html_file(output_dir=output_dir, gene_scores=gene_scores_munge_voting, num_genes=num_genes, num_cells=num_cells, top_num_html=1000)
+    gene_scores_munge_voting[['Gene ID','Voting_genes_top10']].to_html('{}/voting.html'.format(output_dir))
+    gene_scores_munge.to_csv('{}.table.tsv'.format(output_dir), sep='\t')
+
+    ########################
+    # Generate image files
+    ########################
+    print(f"Generating image files")
+    generate_image_files(expression_matrix=(expression_matrix.T / adata.obs[size_factor_key].values.astype(float)) if size_factor_key is not None else expression_matrix.T,
+                         gamma_argmax_list=gamma_argmax_list, gene_scores=gene_scores, cell_meta_info=adata.obs.copy(),
+                         low_dim_key1=low_dim_key1, low_dim_key2=low_dim_key2, output_dir=output_dir, top_num_image=top_num_image,
+                         cell_color_key=None,
+                         **plot_parameters)
+
+
+
+
+
 
 
 

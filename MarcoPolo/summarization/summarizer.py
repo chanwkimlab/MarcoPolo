@@ -1,163 +1,166 @@
 import numpy as np
 import pandas as pd
+import anndata as ad
 
-from scipy.io import mmread
+import warnings
+
+from sklearn import preprocessing
 from sklearn.decomposition import PCA
-
-import rpy2.robjects as ro
-from rpy2.robjects.packages import importr
-from rpy2.robjects import pandas2ri
-from rpy2.robjects.conversion import localconverter
 
 import MarcoPolo.utils
 
+pd.options.mode.chained_assignment = None
 
-def save_MarcoPolo(input_path,output_path,mode=2,voting_thres=0.7,norm_thres=10,n_pc=2,lfc_thres=0.6,minor_size_min=10,minor_size_max_percent=70):
+def find_markers(adata: ad.AnnData, regression_result: dict, mode: float=2, voting_thres: float=0.7, PCA_norm_thres:float=10, num_PC:int=2, log_fold_change_thres:float=0.6,
+                 oncell_size_min_count:float=10, oncell_size_max_proportion:float=70)->pd.DataFrame:
     """
-    Save MarcoPolo result
-    
-    :param input_path str: input file path
-    :param output_path str: output file path
-    :param mode int: default=2
-    :param voting thres float: value >=0 and <=1
-    :param n_pc int: value >=1 and <=50
-    """
-    lfc_thres
-    # read scRNA data
-    exp_data=mmread('{}.data.counts.mm'.format(input_path)).toarray().astype(float)
-    with open('{}.data.col'.format(input_path),'r') as f: exp_data_col=[i.strip().strip('"') for i in f.read().split()]
-    with open('{}.data.row'.format(input_path),'r') as f: exp_data_row=[i.strip().strip('"') for i in f.read().split()]
-    assert exp_data.shape==(len(exp_data_row),len(exp_data_col))
-    assert len(set(exp_data_row))==len(exp_data_row)
-    assert len(set(exp_data_col))==len(exp_data_col)
-    
-    #read QQ
-    result_list,gamma_list_list,delta_log_list_list,beta_list_list= MarcoPolo.utils.read_QQscore(input_path, [1, mode])
-    gamma_list=gamma_list_list[-1]
-    
-    gamma_argmax_list= MarcoPolo.utils.gamma_list_exp_data_to_gamma_argmax_list(gamma_list, exp_data)
-    
-    
-    # mean_0_all    
-    mean_all=np.array([np.mean(exp_data[i,:]) for i in range(gamma_argmax_list.shape[0])])
-    mean_0=np.array([np.mean(exp_data[i,gamma_argmax_list[i]==0]) for i in range(gamma_argmax_list.shape[0])])    
-    mean_0_all=mean_0-mean_all    
-    
-    # QQratio
-    QQratio=result_list[0]['Q']/result_list[-1]['Q']
-    
-    # voting score
-    minorsize_list=np.sum(gamma_argmax_list==0,axis=1)
-    minorsize_cliplist= MarcoPolo.utils.gamma_argmax_list_to_minorsize_list_list(gamma_argmax_list)
-    intersection_list= MarcoPolo.utils.gamma_argmax_list_to_intersection_list(gamma_argmax_list)
-    intersectioncount_threshold=((intersection_list/minorsize_cliplist)>voting_thres)
-    intersectioncount_thresholdcount=np.sum(intersectioncount_threshold,axis=1)
+    find markers
+    Args:
+        adata:
+        regression_result:
+        mode:
+        voting_thres: should be between 0 and 1
+        PCA_norm_thres:
+        num_PC: should be between 1 and 50
+        log_fold_change_thres:
+        oncell_size_min_count:
+        oncell_size_max_proportion:
 
-    
-    # lfc
-    lfc=np.log10(np.array([np.mean(exp_data[i,gamma_argmax_list[i]==0],axis=0) for i in range(gamma_argmax_list.shape[0])])/                np.array([np.mean(exp_data[i,gamma_argmax_list[i]!=0],axis=0) for i in range(gamma_argmax_list.shape[0])]))      
-    
-    # PC Variance    
-    exp_data_norm=np.log1p(10000*exp_data/exp_data.sum(axis=0))
-    exp_data_norm_scale=(exp_data_norm-exp_data_norm.mean(axis=1).reshape(-1,1))/    exp_data_norm.std(axis=1).reshape(-1,1)
-    exp_data_norm_scale[exp_data_norm_scale>norm_thres]=norm_thres
+    Returns:
+        gene_scores:
+
+    """
+    expression_matrix = adata.X
+    num_cells=expression_matrix.shape[0]
+    num_genes=expression_matrix.shape[1]
+
+    ########################
+    # Assign cells to on-cells and off-cells
+    ########################
+    gamma_list = regression_result["gamma_list_cluster"][mode]
+    gamma_argmax_list = MarcoPolo.utils.gamma_list_expression_matrix_to_gamma_argmax_list(gamma_list, expression_matrix)
+
+    ########################
+    # Calculate log fold change
+    ########################
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        log_fold_change = np.log10(np.array([np.mean(expression_matrix[gamma_argmax_list[i] == 0, i]) for i in
+                                 range(num_genes)]) / np.array(
+            [np.mean(expression_matrix[gamma_argmax_list[i] != 0, i]) for i in range(num_genes)]))
+
+    ########################
+    # Calculate voting score
+    ########################
+    oncell_size_list = np.sum(gamma_argmax_list == 0, axis=1)
+    oncell_size_cliplist = MarcoPolo.utils.gamma_argmax_list_to_oncell_size_list_list(gamma_argmax_list)
+    intersection_list = MarcoPolo.utils.gamma_argmax_list_to_intersection_list(gamma_argmax_list)
+    #intersectioncount_prop=((intersection_list/oncell_size_cliplist))
+    #intersectioncount_prop_top10=[np.arange(0,len(i))[i>=sorted(i)[-10]][:10] for i in intersectioncount_prop]
+    intersectioncount_threshold = ((intersection_list / oncell_size_cliplist) > voting_thres)
+    voting_score = np.sum(intersectioncount_threshold, axis=1)
+
+    ########################
+    # Calculate proximity score
+    ########################
+    expression_matrix_norm = np.log1p(10000 * expression_matrix / expression_matrix.sum(axis=1, keepdims=True))
+    expression_matrix_norm_scale = preprocessing.scale(expression_matrix_norm, axis=0, with_mean=True, with_std=True, copy=True)
+    expression_matrix_norm_scale[expression_matrix_norm_scale > PCA_norm_thres] = PCA_norm_thres
 
     pca = PCA(n_components=50)
-    pca.fit(exp_data_norm_scale.T)
-    exp_data_norm_scale_pc=pca.transform(exp_data_norm_scale.T)
-    exp_data_norm_scale_pc.shape
-               
-    exp_data_norm_scale_pc_topstdmean=np.array([exp_data_norm_scale_pc[gamma_argmax_list[i]==0,:n_pc].std(axis=0).mean() for i in range(gamma_argmax_list.shape[0])])
-        
-        
-    try:
-        markerrho=pd.read_csv('{}.markerrho.tsv'.format(input_path),index_col=0,sep='\t')
-    except:
-        print('markerrho does not exist')
-        markerrho=pd.DataFrame([])  
-        #except NameError:
-    try:
-        maxdiff=pd.read_csv('{}.maxdiff.tsv'.format(input_path),index_col=0,header=None,sep='\t')[1]
-    except:
-        print('maxdiff does not exist')
-        maxdiff=np.zeros_like(QQratio.values)
-        assert maxdiff.shape[0]==len(exp_data_row)          
-             
+    pca.fit(expression_matrix_norm_scale)
+    expression_matrix_norm_scale_pc = pca.transform(expression_matrix_norm_scale)
 
-    allscore=pd.DataFrame([QQratio.values,
-                           intersectioncount_thresholdcount,
-                           exp_data_norm_scale_pc_topstdmean,
-                           lfc,
-                           mean_0_all,
-                           minorsize_list,
-                           maxdiff,
-                           list(map(lambda x: x in markerrho.columns,exp_data_row))
-                          ],
-                          index=['QQratio',
-                                 'intersectioncount',
-                                 'PCstd',
-                                 'lfc',
-                                 'mean_0_all',
-                                 'minorsize',
-                                 'maxdiff',
-                                 'ismarker']).T
+    proximity_score = np.array(
+        [expression_matrix_norm_scale_pc[gamma_argmax_list[i] == 0, :num_PC].std(axis=0).mean() for i in
+         range(num_genes)])
 
-    allscore['QQratio_rank']=pd.Series(np.arange(allscore.shape[0]),index=allscore['QQratio'].sort_values(ascending=False).index).loc[allscore.index]
+    ########################
+    # Calculate bimodality score
+    ########################
+    QQratio = regression_result["result_cluster"][1]['Q'] / regression_result["result_cluster"][mode]['Q']
+    mean_all = np.array([np.mean(expression_matrix[:, i]) for i in range(num_genes)])
 
-    allscore['intersectioncount_rank']=pd.Series(np.arange(allscore.shape[0]),index=allscore['intersectioncount'].sort_values(ascending=False).index).loc[allscore.index]
-    
-    allscore['PCstd_rank']=pd.Series(np.arange(allscore.shape[0]),index=allscore['PCstd'].sort_values(ascending=True).index).loc[allscore.index]
-    
-    allscore['lfc_rank']=pd.Series(np.arange(allscore.shape[0]),index=allscore['lfc'].sort_values(ascending=False).index).loc[allscore.index]
-    
-    allscore['mean_0_all_rank']=pd.Series(np.arange(allscore.shape[0]),index=allscore['mean_0_all'].sort_values(ascending=False).index).loc[allscore.index]
-    allscore['minorsize_rank']=pd.Series(np.arange(allscore.shape[0]),index=allscore['minorsize'].sort_values(ascending=False).index).loc[allscore.index]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        mean_on = np.array(
+            [np.mean(expression_matrix[gamma_argmax_list[i] == 0, i]) for i in range(num_genes)])
+    MS = mean_on - mean_all
 
-    allscore['intersectioncount_rank'][allscore['intersectioncount']==0]=499999
-    allscore['intersectioncount_rank'][allscore['intersectioncount']==1]=999999
+    ########################
+    # Final step of obtaining MarcoPolo score
+    ########################
+    gene_scores = pd.DataFrame([QQratio.values,
+                                voting_score,
+                                proximity_score,
+                               log_fold_change,
+                               MS,
+                               oncell_size_list,],
+                               index=['QQratio',
+                                     'voting_score',
+                                     'proximity_score',
+                                     'log_fold_change',
+                                     'MS',
+                                     'oncell_size']).T
 
-    
-    allscore['votingscore_rank']=allscore['intersectioncount_rank'].copy()
-    allscore['votingscore_rank'][~(
-            (allscore['lfc']>lfc_thres)&
-            (allscore['minorsize']>int(minor_size_min))&
-            (allscore['minorsize']<int(minor_size_max_percent/100*len(exp_data_col)))
-            )]=len(allscore)    
-    
-    allscore['bimodalityscore_rank']=allscore[['QQratio_rank','mean_0_all_rank']].min(axis=1)
-    allscore['bimodalityscore_rank'][~(
-            (allscore['lfc']>lfc_thres)&
-            (allscore['minorsize']>int(minor_size_min))&
-            (allscore['minorsize']<int(minor_size_max_percent/100*len(exp_data_col)))
-            )]=len(allscore)    
-    
-    allscore['proximityscore_rank']=allscore['PCstd_rank'].copy()
-    allscore['proximityscore_rank'][~(
-            (allscore['lfc']>lfc_thres)&
-            (allscore['minorsize']>int(minor_size_min))&
-            (allscore['minorsize']<int(minor_size_max_percent/100*len(exp_data_col)))
-            )]=len(allscore)       
-    
-    
-    MarcoPolo_score=allscore[['votingscore_rank','proximityscore_rank','bimodalityscore_rank']].min(axis=1)
-    
-    
-    allscore['MarcoPolo']=MarcoPolo_score
-    allscore['MarcoPolo_rank']=pd.Series(np.arange(allscore.shape[0]),index=allscore.sort_values(['MarcoPolo','lfc'],ascending=[True,False]).index).loc[allscore.index]
+    gene_scores['QQratio_rank'] = \
+        pd.Series(np.arange(num_genes), index=gene_scores['QQratio'].sort_values(ascending=False).index).loc[
+            gene_scores.index]
 
-    
-    allscore.to_csv('{path}.MarcoPolo.{mode}.rank.tsv'.format(path=output_path,mode=mode),sep='\t')
-    #np.save('{path}.MarcoPolo.{mode}.rank.npy'.format(path=output_path,mode=mode), intersectioncount_prop)
-    
-    
-    base = importr('base')
+    gene_scores['voting_score_rank'] = \
+        pd.Series(np.arange(num_genes),
+                  index=gene_scores['voting_score'].sort_values(ascending=False).index).loc[
+            gene_scores.index]
+    gene_scores['voting_score_rank'][gene_scores['voting_score'] == 0] = 499999
+    gene_scores['voting_score_rank'][gene_scores['voting_score'] == 1] = 999999
 
-    with localconverter(ro.default_converter + pandas2ri.converter):
-        allscore_r = ro.conversion.py2rpy(allscore.fillna(0))
-        ro.r.assign("result", allscore_r)
+    gene_scores['proximity_score_rank'] = \
+        pd.Series(np.arange(num_genes), index=gene_scores['proximity_score'].sort_values(ascending=True).index).loc[
+            gene_scores.index]
 
-    with localconverter(ro.default_converter + pandas2ri.converter):
-        gamma_argmax_list_r = ro.conversion.py2rpy(pd.DataFrame(gamma_argmax_list))
-        ro.r.assign("gamma_argmax_list", gamma_argmax_list_r)        
-        
-    base.save_image('{path}.MarcoPolo.{mode}.RData'.format(path=output_path,mode=mode))
+    gene_scores['log_fold_change_rank'] = \
+        pd.Series(np.arange(num_genes), index=gene_scores['log_fold_change'].sort_values(ascending=False).index).loc[
+            gene_scores.index]
+
+    gene_scores['MS_rank'] = \
+        pd.Series(np.arange(num_genes), index=gene_scores['MS'].sort_values(ascending=False).index).loc[
+            gene_scores.index]
+
+    gene_scores['oncell_size_rank'] = \
+        pd.Series(np.arange(num_genes), index=gene_scores['oncell_size'].sort_values(ascending=False).index).loc[
+            gene_scores.index]
+
+    # Exclude outliers genes from ranking.
+    gene_scores['voting_score_rank'][~(
+            (gene_scores['log_fold_change'] > log_fold_change_thres) &
+            (gene_scores['oncell_size'] > int(oncell_size_min_count)) &
+            (gene_scores['oncell_size'] < int(oncell_size_max_proportion / 100 * num_cells))
+    )] = len(gene_scores)
+
+    gene_scores['bimodality_score_rank'] = gene_scores[['QQratio_rank', 'MS_rank']].min(axis=1).astype(int)
+    gene_scores['bimodality_score_rank'][~(
+            (gene_scores['log_fold_change'] > log_fold_change_thres) &
+            (gene_scores['oncell_size'] > int(oncell_size_min_count)) &
+            (gene_scores['oncell_size'] < int(oncell_size_max_proportion / 100 * num_cells))
+    )] = len(gene_scores)
+
+    gene_scores['proximity_score_rank'] = gene_scores['proximity_score_rank'].copy().astype(int)
+    gene_scores['proximity_score_rank'][~(
+            (gene_scores['log_fold_change'] > log_fold_change_thres) &
+            (gene_scores['oncell_size'] > int(oncell_size_min_count)) &
+            (gene_scores['oncell_size'] < int(oncell_size_max_proportion / 100 * num_cells))
+    )] = len(gene_scores)
+
+    MarcoPolo_score = gene_scores[['voting_score_rank', 'proximity_score_rank', 'bimodality_score_rank']].min(axis=1)
+
+    gene_scores['MarcoPolo'] = MarcoPolo_score
+    gene_scores['MarcoPolo_rank'] = pd.Series(np.arange(gene_scores.shape[0]),
+                                           index=gene_scores.sort_values(['MarcoPolo', 'log_fold_change'],
+                                                                      ascending=[True, False]).index).loc[
+        gene_scores.index]
+
+    gene_scores = gene_scores.reindex(sorted(gene_scores.columns), axis=1)
+
+    return gene_scores
+    
+    
