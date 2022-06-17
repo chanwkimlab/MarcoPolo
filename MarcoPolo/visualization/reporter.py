@@ -140,6 +140,7 @@ def generate_html_file(output_dir, gene_scores, num_genes, num_cells, top_num_ht
     MarcoPolo_table = MarcoPolo_table.to_html(classes="table table-bordered", table_id='dataTable')
 
     MarcoPolo_table = MarcoPolo_table.replace('<table ', '<table width="100%" cellspacing="0" ')
+    import ipdb; ipdb.set_trace()
     template_rendered = template.render(MarcoPolo_table=MarcoPolo_table, num_gene=num_genes, num_cell=num_cells)
 
     with open('{}/index.html'.format(output_dir), 'w') as f:
@@ -357,7 +358,7 @@ def generate_report(adata: ad.AnnData, size_factor_key: Union[str, None], regres
                                     'dbXrefs'
                                    ]]
         gene_scores_munge['img'] = gene_scores_munge.apply(lambda x: '<img src="plot_image/{idx}.png" alt="{idx}">'.format(idx=x.name), axis=1)
-        import ipdb; ipdb.set_trace()
+
 
     else:
         gene_scores_munge['Log2FC'] = (gene_scores_munge['log_fold_change'] / np.log10(2)).round(2)
@@ -374,7 +375,7 @@ def generate_report(adata: ad.AnnData, size_factor_key: Union[str, None], regres
                                    ]]
         gene_scores_munge['img']=gene_scores_munge.apply(lambda x: '<img src="plot_image/{idx}.png" alt="{idx}">'.format(idx=x.name),axis=1)
 
-
+    # import ipdb; ipdb.set_trace()
     ########################
     # Generate table files
     ########################
