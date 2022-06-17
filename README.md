@@ -22,25 +22,19 @@ MarcoPolo is a method to discover differentially expressed genes in single-cell 
 |Peripheral blood mononuclear cells (Zheng et al.)|[https://chanwkimlab.github.io/MarcoPolo/Zhengmix8eq/](https://chanwkimlab.github.io/MarcoPolo/Zhengmix8eq/)|
 
 
-## Dataset preparation
-MarcoPolo works jointly with [AnnData](https://anndata.readthedocs.io/), a flexible and efficient data format for scRNA-seq data widely used in python community. This enables MarcoPolo to seamlessly work with other popular single cell software packages such as [scanpy](https://scanpy.readthedocs.io/), or more broadly, other packages included in the [scverse](https://scverse.org/projects/) project, etc. 
+## Preparing dataset
+MarcoPolo works jointly with [AnnData](https://anndata.readthedocs.io/), a flexible and efficient data format for scRNA-seq data widely used in python community. This enables MarcoPolo to seamlessly work with other popular single cell software packages such as [scanpy](https://scanpy.readthedocs.io/), or more broadly, other packages included in the [scverse](https://scverse.org/projects/) project, etc as they also work based on AnnData. 
 
 You should prepare your scRNA-seq data in AnnData object before running MarcoPolo.
-Please refer to the [AnnData-Getting started](https://anndata-tutorials.readthedocs.io/en/latest/getting-started.html) to get to know more about AnnData.
+Please refer to the [AnnData's Getting started page](https://anndata-tutorials.readthedocs.io/en/latest/getting-started.html) for more information about AnnData.
 If your data is in seurat object, you can very easily convert it to AnnData following the instructions [here](https://satijalab.org/seurat/articles/conversion_vignette.html).
 
 As MarcoPolo runs on raw count data, anndata should contain the raw count data in `.X`. The structure of Anndata is described [here](https://anndata.readthedocs.io/en/latest/generated/anndata.AnnData.html). 
 
 ## Running MarcoPolo on Google Colab 
-You can easily try using MarcoPolo on Google Colab: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/chanwkimlab/MarcoPolo/blob/main/notebooks/MarcoPolo.ipynb)
+You can easily try MarcoPolo on Google Colab: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/chanwkimlab/MarcoPolo/blob/main/notebooks/MarcoPolo.ipynb)
 
 Google colab is a free cloud-based environment for running Python code. Colab allows you to execute MarcoPolo in your browser without any configurations and GPU resources on your end.
-
-- Note
-  - User can specify the number of genes to include in the report file by setting the `top_num_table`
-    and `top_num_figure` parameters.
-  - If there are any two genes with the same MarcoPolo score, a gene with a larger fold change value is prioritized.
-
 
 ## Running MarcoPolo on your local machine
 ### How to install MarcoPolo
@@ -64,8 +58,7 @@ You can simply install MarcoPolo by using the `pip` command:
 ```bash
 pip install marcopolo-pytorch
 ```
-### How to get an updated version of MarcoPolo
-You can simply update MarcoPolo by using the `pip` command:
+If MarcoPolo installed on your machine is outdated, you can get an updated version of MarcoPolo by using the `pip` command:
 ```bash
 pip install marcopolo-pytorch --upgrade
 ```
