@@ -140,7 +140,7 @@ def generate_html_file(output_dir, gene_scores, num_genes, num_cells, top_num_ht
     MarcoPolo_table = MarcoPolo_table.to_html(classes="table table-bordered", table_id='dataTable')
 
     MarcoPolo_table = MarcoPolo_table.replace('<table ', '<table width="100%" cellspacing="0" ')
-    import ipdb; ipdb.set_trace()
+    #import ipdb; ipdb.set_trace()
     template_rendered = template.render(MarcoPolo_table=MarcoPolo_table, num_gene=num_genes, num_cell=num_cells)
 
     with open('{}/index.html'.format(output_dir), 'w') as f:

@@ -7,7 +7,7 @@ setup(
   name = 'marcopolo-pytorch',
   packages = find_packages(exclude=[]),
   include_package_data = True,
-  version = '1.0.8',
+  version = '1.0.9',
   description = 'MarcoPolo - Pytorch',
   author = 'Chanwoo Kim',
   author_email = 'ch6845@gmail.com',
