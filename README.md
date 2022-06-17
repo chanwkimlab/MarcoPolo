@@ -32,7 +32,7 @@ If your data is in seurat object, you can very easily convert it to AnnData foll
 As MarcoPolo runs on raw count data, anndata should contain the raw count data in `.X`. The structure of Anndata is described [here](https://anndata.readthedocs.io/en/latest/generated/anndata.AnnData.html). 
 
 ## Running MarcoPolo on Google Colab 
-The easiest way to use MarcoPolo is to use Google Colab: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/chanwkimlab/MarcoPolo/blob/main/notebooks/MarcoPolo-tutorial.ipynb)
+The easiest way to use MarcoPolo is to use Google Colab: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/chanwkimlab/MarcoPolo/blob/main/notebooks/MarcoPolo.ipynb)
 
 Google colab is a free cloud-based environment for running Python code. Colab allows you to execute MarcoPolo in your browser without any configurations and GPU resources on your end.
 

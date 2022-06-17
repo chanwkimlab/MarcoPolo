@@ -281,7 +281,7 @@ def run_regression(adata: ad.AnnData, size_factor_key: Union[str, None], covaria
                                "LL_diff_tolerance": LL_diff_tolerance, "Q_diff_tolerance": Q_diff_tolerance}
 
     if num_threads != 1:
-        multiprocessing.set_start_method('spawn')
+        multiprocessing.set_start_method('spawn', force=True)
         pool = multiprocessing.Pool(processes=num_threads)
 
         gene_per_thread = expression_matrix.shape[1] // num_threads
