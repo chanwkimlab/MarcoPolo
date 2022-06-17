@@ -2,3 +2,6 @@
 *.ipynb filter=nbstripout
 *.ipynb diff=ipynb
 *.ipynb linguist-language=Python
+
+*.css linguist-detectable=false
+*.js linguist-detectable=true
