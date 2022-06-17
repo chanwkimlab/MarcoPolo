@@ -292,7 +292,7 @@ def run_regression(adata: ad.AnnData, size_factor_key: Union[str, None], covaria
             (gene_per_thread * (num_threads - 1), expression_matrix.shape[1])]
         #gene_thread_split=gene_thread_split[::-1]
 
-        multiprocessing.freeze_support()
+        #multiprocessing.freeze_support()
 
         fit_result_thread = pool.starmap(fit_multiple_genes, [(expression_matrix[:, start_gene_idx: end_gene_idx],
                                                                covariate_matrix[:],

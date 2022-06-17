@@ -357,6 +357,7 @@ def generate_report(adata: ad.AnnData, size_factor_key: Union[str, None], regres
                                     'dbXrefs'
                                    ]]
         gene_scores_munge['img'] = gene_scores_munge.apply(lambda x: '<img src="plot_image/{idx}.png" alt="{idx}">'.format(idx=x.name), axis=1)
+        import ipdb; ipdb.set_trace()
 
     else:
         gene_scores_munge['Log2FC'] = (gene_scores_munge['log_fold_change'] / np.log10(2)).round(2)
@@ -378,7 +379,7 @@ def generate_report(adata: ad.AnnData, size_factor_key: Union[str, None], regres
     # Generate table files
     ########################
     print(f"Generating table files...")
-    generate_html_file(output_dir=output_dir, gene_scores=gene_scores_munge_voting, num_genes=num_genes, num_cells=num_cells, top_num_html=top_num_html)
+    generate_html_file(output_dir=output_dir, gene_scores=gene_scores_munge, num_genes=num_genes, num_cells=num_cells, top_num_html=top_num_html)
     gene_scores_munge_voting[['Gene ID','Voting_genes_top10']].to_html('{}/voting_result.html'.format(output_dir))
     gene_scores_munge.to_csv('{}.table.tsv'.format(output_dir), sep='\t')
 
