@@ -3,4 +3,5 @@
 *.ipynb diff=ipynb
 *.ipynb linguist-language=Python
 *.css linguist-detectable=false
-*.js linguist-detectable=true
+*.js linguist-detectable=false
+*.html linguist-detectable=false
