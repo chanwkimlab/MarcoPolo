@@ -141,11 +141,10 @@ def fit_multiple_genes(Y: np.array, X: np.array, s: np.array,
 
     """
 
-    Y_select = Y[:, start_gene_idx:end_gene_idx].copy()
-
-    if len(multiprocessing.current_process()._identity) == 0 or multiprocessing.current_process()._identity[0] == 1:
-        print(f'The numbers of clusters to test: {num_cluster_list}')
-        print(f'Y: {Y.shape} X: {X.shape} s: {s.shape}')
+    if start_gene_idx is not None or end_gene_idx is not None:
+        Y_select = Y[:, start_gene_idx:end_gene_idx]
+    else:
+        Y_select=Y
 
     device = torch.device(device)
 
@@ -280,6 +279,10 @@ def run_regression(adata: ad.AnnData, size_factor_key: Union[str, None], covaria
     fit_one_gene_parameters = {"EM_ITER_MAX": EM_ITER_MAX, "M_ITER_MAX": M_ITER_MAX,
                                "LL_diff_tolerance": LL_diff_tolerance, "Q_diff_tolerance": Q_diff_tolerance}
 
+
+    print(f'The numbers of clusters to test: {num_cluster_list}')
+    print(f'Y: {expression_matrix.shape} X: {covariate_matrix.shape} s: {cell_size_factor.shape}')
+
     if num_threads != 1:
         multiprocessing.set_start_method('spawn', force=True)
         pool = multiprocessing.Pool(processes=num_threads)
@@ -291,15 +294,15 @@ def run_regression(adata: ad.AnnData, size_factor_key: Union[str, None], covaria
 
         multiprocessing.freeze_support()
 
-        fit_result_thread = pool.starmap(fit_multiple_genes, [(expression_matrix,
+        fit_result_thread = pool.starmap(fit_multiple_genes, [(expression_matrix[:, start_gene_idx: end_gene_idx],
                                                                covariate_matrix[:],
                                                                cell_size_factor[:],
                                                                num_cluster_list,
                                                                learning_rate,
                                                                fit_one_gene_parameters,
                                                                device,
-                                                               start_gene_idx,
-                                                               end_gene_idx,
+                                                               None,
+                                                               None,
                                                                verbose) for start_gene_idx, end_gene_idx in
                                                               gene_thread_split])
 
