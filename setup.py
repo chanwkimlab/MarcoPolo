@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 # python -m build
-# python3 -m twine upload --repository pypi dist/* --verbose
+# python -m twine upload --repository pypi dist/* --verbose
 
 setup(
   name = 'marcopolo-pytorch',
