@@ -9,9 +9,10 @@ def gamma_argmax_list_to_oncell_size_list_list(gamma_argmax_list: np.ndarray)->n
     """
 
     Args:
-        gamma_argmax_list:
+        gamma_argmax_list: List of gamma_argmax.
 
     Returns:
+        np.ndarray: List of oncell size.
 
     """
     oncellsize_list=np.sum(gamma_argmax_list==0,axis=1)
@@ -22,6 +23,16 @@ def gamma_argmax_list_to_oncell_size_list_list(gamma_argmax_list: np.ndarray)->n
 
 
 def gamma_argmax_list_to_intersection(gamma_argmax_list, idx):
+    """
+
+    Args:
+        gamma_argmax_list: List of gamma_argmax.
+        idx: Index of gamma_argmax_list.
+
+    Returns:
+        np.ndarray: Intersection.
+
+    """
     intersection = np.sum((gamma_argmax_list[idx] == gamma_argmax_list) & (gamma_argmax_list[idx] == 0), axis=1)
     return intersection
 
@@ -29,12 +40,12 @@ def gamma_argmax_list_to_intersection_list(gamma_argmax_list: np.ndarray)->np.nd
     """
 
     Args:
-        gamma_argmax_list:
+        gamma_argmax_list:  List of gamma_argmax.
 
     Returns:
+        np.ndarray: List of intersection.
 
     """
-
 
     pool=multiprocessing.Pool(processes=16)
 
@@ -49,11 +60,11 @@ def gamma_expression_to_gamma_argmax(gamma: np.ndarray, expression: np.ndarray =
     """
 
     Args:
-        gamma:
+        gamma: A gamma matrix.
         expression: If expression is not None, it is used to calculate the which group has higher expression mean.
 
     Returns:
-        gamma_argmax_list:
+        np.ndarray: gamma_argmax.
 
     """
     gamma_argmax = np.argmax(gamma, axis=1)
@@ -77,10 +88,11 @@ def gamma_list_expression_matrix_to_gamma_argmax_list(gamma_list: np.ndarray, ex
     """
 
     Args:
-        gamma_list:
-        expression_matrix:
+        gamma_list: List of gamma matrices.
+        expression_matrix: If expression_matrix is not None, it is used to calculate the which group has higher expression mean.
 
     Returns:
+        List of gamma_argmax.
 
     """
     pool=multiprocessing.Pool(processes=16)

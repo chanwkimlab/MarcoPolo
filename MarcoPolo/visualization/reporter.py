@@ -83,7 +83,9 @@ def annotate_gene_info(gene_scores, gene_query_list, gene_info, by):
 
     column_list = ['Symbol', 'description', 'Other_designations', 'type_of_gene', 'dbXrefs']
 
-    for idx, query in enumerate(tqdm(gene_query_list)):
+    not_matched_list = []
+    pbar=tqdm(gene_query_list)
+    for idx, query in enumerate(pbar):
         if by == 'ID':
             gene_info_select = gene_info[gene_info['dbXrefs'].str.contains(query, regex=False)]
         else:
@@ -94,9 +96,11 @@ def annotate_gene_info(gene_scores, gene_query_list, gene_info, by):
         if len(gene_info_select) >= 1:
             gene_info_select_list.append(gene_info_select[column_list].iloc[0])
         else:
-            gene_info_select_list.append(pd.Series(index=column_list))
-            print(query, len(gene_info_select))
-
+            gene_info_select_list.append(pd.Series(index=column_list, dtype=float))
+            not_matched_list.append(query)
+        #pbar.set_description(f"Number of genes unmatched: {len(not_matched_list)}/ {len(gene_query_list)}")
+        pbar.set_postfix({'Num. of unmatched genes': len(not_matched_list)})
+    print(f"{len(not_matched_list)} not matched genes: {', '.join(not_matched_list[:20])+ ', ...' if len(not_matched_list) > 20 else ', '.join(not_matched_list)}")
     gene_info_extract = pd.DataFrame(gene_info_select_list, index=np.arange(len(gene_query_list)))
 
 
@@ -141,7 +145,7 @@ def generate_html_file(output_dir, gene_scores, num_genes, num_cells, top_num_ht
     with open('{}/index.html'.format(output_dir), 'w') as f:
         f.write(template_rendered)
 
-def generate_image_files(expression_matrix, gamma_argmax_list, gene_scores, cell_meta_info, low_dim_key1, low_dim_key2, output_dir, top_num_image,
+def generate_image_files(adata, size_factor_key, gamma_argmax_list, gene_scores, low_dim_key, output_dir, top_num_image,
                          cell_color_key=None,
                          main_plot_s=25, main_plot_dpi=100, main_plot_font_size=10, main_plot_font_family='Arial',
                          gene_plot_s=10, gene_plot_dpi=60, gene_plot_font_size=15, gene_plot_font_family='Arial',
@@ -158,12 +162,28 @@ def generate_image_files(expression_matrix, gamma_argmax_list, gene_scores, cell
     ax = fig.add_subplot(gs[1:9, 1:9])
 
     if cell_color_key is None:
-        plot_value = pd.Series("temp", index=cell_meta_info.index)
+        plot_value = pd.Series("temp", index=adata.obs.index)
     else:
-        plot_value = cell_meta_info[cell_color_key]
+        plot_value = adata.obs[cell_color_key]
     plot_value_unique = plot_value.unique().tolist()
 
-    scatterfig = sns.scatterplot(x=low_dim_key1, y=low_dim_key2, hue=plot_value, data=cell_meta_info,
+    expression_matrix= adata.X.copy()
+
+    if not type(expression_matrix) == np.ndarray:
+        expression_matrix = expression_matrix.toarray().astype(float)
+    else:
+        expression_matrix = expression_matrix.astype(float)
+
+    if size_factor_key is not None:
+        expression_matrix = (expression_matrix / adata.obs[size_factor_key].values.astype(float)[:, np.newaxis])
+        print("size factor corrected")
+    else:
+        print("No size factor key")
+
+    cell_meta_info=adata.obs.copy()
+    cell_meta_info["coord_x"]=adata.obsm[low_dim_key][:,0]
+    cell_meta_info["coord_y"] = adata.obsm[low_dim_key][:, 1]
+    scatterfig = sns.scatterplot(x="coord_x", y="coord_y", hue=plot_value, data=cell_meta_info,
                                  palette=get_discrete_palette(
                                      len(plot_value_unique)).tolist() if plot_value.dtype == int else None,
                                  ax=ax, s=main_plot_s, alpha=1, edgecolor='None'
@@ -179,8 +199,9 @@ def generate_image_files(expression_matrix, gamma_argmax_list, gene_scores, cell
     for axis in ['top', 'bottom', 'left', 'right']:
         ax.spines[axis].set_linewidth(2)
 
-    plt.savefig('{}/plot_image/2D_Plot.png'.format(output_dir), dpi=main_plot_dpi, bbox_inches='tight')
-    plt.show()
+    fig.savefig('{}/plot_image/2D_Plot.png'.format(output_dir), dpi=main_plot_dpi, bbox_inches='tight')
+    plt.close(fig)
+
 
     plt.rcParams["font.size"] = gene_plot_font_size
     plt.rcParams['font.family'] = gene_plot_font_family
@@ -194,9 +215,9 @@ def generate_image_files(expression_matrix, gamma_argmax_list, gene_scores, cell
         gs = fig.add_gridspec(6, 3 * 8)
         subplot_list = [fig.add_subplot(gs[0:6, 0:6]),
                         fig.add_subplot(gs[0:6, 6 + 2:6 + 2 + 6])]
-
-        exp_data_corrected_on = expression_matrix[iter_idx][gamma_argmax_list[iter_idx] == 0]
-        exp_data_corrected_off = expression_matrix[iter_idx][gamma_argmax_list[iter_idx] == 1]
+        #import ipdb; ipdb.set_trace()
+        exp_data_corrected_on = expression_matrix.T[iter_idx][gamma_argmax_list[iter_idx] == 0]
+        exp_data_corrected_off = expression_matrix.T[iter_idx][gamma_argmax_list[iter_idx] == 1]
 
         bins_log = [np.power(1.2, i) for i in range(
             np.max([1, int(np.log(np.max([1, np.max(expression_matrix)])) / np.log(1.2))]))]
@@ -204,13 +225,13 @@ def generate_image_files(expression_matrix, gamma_argmax_list, gene_scores, cell
         for idx in range(2):
             ax = subplot_list[idx]
             if idx == 0:
-                sns.scatterplot(x=low_dim_key1, y=low_dim_key2, hue=plot_value, data=cell_meta_info,
+                sns.scatterplot(x="coord_x", y="coord_y", hue=plot_value, data=cell_meta_info,
                                 palette=get_discrete_palette(
                                     len(plot_value_unique)).tolist() if plot_value.dtype == int else None,
                                 ax=ax, alpha=0.3, edgecolor="None",
                                 s=gene_plot_s
                                 )
-                sns.scatterplot(x=low_dim_key1, y=low_dim_key2, data=cell_meta_info.loc[gamma_argmax_list[iter_idx] == 0],
+                sns.scatterplot(x="coord_x", y="coord_y", data=cell_meta_info.loc[gamma_argmax_list[iter_idx] == 0],
                                 ax=ax,
                                 edgecolor=[1, 0, 0, 1],
                                 facecolors="None",
@@ -255,30 +276,28 @@ def generate_image_files(expression_matrix, gamma_argmax_list, gene_scores, cell
                 for axis in ['top', 'bottom', 'left', 'right']:
                     ax.spines[axis].set_linewidth(2)
 
-        plt.savefig('{}/plot_image/{}.png'.format(output_dir, iter_idx), dpi=gene_plot_dpi, bbox_inches='tight')
+        fig.savefig('{}/plot_image/{}.png'.format(output_dir, iter_idx), dpi=gene_plot_dpi, bbox_inches='tight')
 
         plt.close(fig)
 
 
-def generate_report(adata: ad.AnnData, size_factor_key: Union[str, None], regression_result: dict, gene_scores: pd.DataFrame, output_dir: str,  low_dim_key1:str, low_dim_key2:str, cell_color_key=None, gene_info_path: str=None,
-                    top_num_html: int=1000, top_num_image: int=1000, mode=2, plot_parameters: dict=None):
+def generate_report(adata: ad.AnnData, size_factor_key: Union[str, None], regression_result: dict, gene_scores: pd.DataFrame, output_dir: str,  low_dim_key:str, cell_color_key=None, gene_info_path: str=None,
+                    top_num_html: int=1000, top_num_image: int=1000, mode=2, plot_parameters: dict={}):
 
     """
     Args:
-        adata:
-        size_factor_key:
-        regression_result:
-        gene_scores:
+        adata: anndata.AnnData containing scRNA-seq data. `.X` should be a matrix containing raw count data of shape (# cells, # genes).
+        size_factor_key: key of the `adata.obs` containing the size factors. If None, no size factors will be used.
+        regression_result: dict containing regression results. Return value of `run_regression` function.
+        gene_scores: pd.DataFrame containing gene scores. Return value of `find_markers` function.
         gene_info_path: 'https://ftp.ncbi.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz'
-        output_dir:
-        low_dim_key1:
-        low_dim_key2:
-        cell_color_key:
-        top_num_html: the number of top genes to show in the HTML report
-        top_num_image: the number of top genes to generate figures.
-        mode:
-        plot_parameters: {"main_plot_s": 25, "main_plot_dpi": 100, "main_plot_font_size": 10, "main_plot_font_family": 'Arial',
-                          "gene_plot_s": 10, "gene_plot_dpi": 60, "gene_plot_font_size": 15, "gene_plot_font_family": 'Arial'}
+        output_dir: directory to save the report
+        low_dim_key: key for accessing the 2D coordinates stored in `adata.obsm`
+        cell_color_key: key for accessing the variables for coloring cells stored in `adata.obs`. If None, no cell coloring will be used.
+        top_num_html: the number of top genes to show in the HTML report. Default: 1000.
+        top_num_image: the number of top genes to generate figures. Default: 1000.
+        mode: the number of groups used for marker selection. Default: 2.
+        plot_parameters: The parameter to be passed to the `generate_image_files` function ex: {"main_plot_s": 25, "main_plot_dpi": 100, "main_plot_font_size": 10, "main_plot_font_family": 'Arial', "gene_plot_s": 10, "gene_plot_dpi": 60, "gene_plot_font_size": 15, "gene_plot_font_family": 'Arial'}
 
     Returns:
 
@@ -290,12 +309,12 @@ def generate_report(adata: ad.AnnData, size_factor_key: Union[str, None], regres
     gene_scores_munge=gene_scores.copy()
     gene_scores_munge['Gene ID']=adata.var.index.values
 
-
     output_dir=str(Path(output_dir) / "report")
 
     ########################
     # Assign cells to on-cells and off-cells
     ########################
+    print("Assign cells to on-cells and off-cells...")
     gamma_list = regression_result["gamma_list_cluster"][mode]
     gamma_argmax_list = MarcoPolo.utils.gamma_list_expression_matrix_to_gamma_argmax_list(gamma_list, expression_matrix)
 
@@ -315,31 +334,32 @@ def generate_report(adata: ad.AnnData, size_factor_key: Union[str, None], regres
     # Annotate gene_scores with gene info
     ########################
     if gene_info_path is not None:
-        print(f"Annotating genes with the gene info {gene_info_path}")
+        print(f"Annotating genes with the gene info: {gene_info_path}")
         
         gene_info=pd.read_csv(gene_info_path,sep='\t')
+        #import ipdb
+        #ipdb.set_trace()
+        by='ID' if 'ENS' in adata.var.index.values.tolist()[0] else 'name'
+        gene_scores_munge=annotate_gene_info(gene_scores=gene_scores_munge, gene_query_list=adata.var.index.values.tolist(), gene_info=gene_info, by=by)
 
-        by='ID' if 'ENS' in adata.var.index.values.tolist() else 'name'
-        annotate_gene_info(gene_scores=gene_scores_munge, gene_query_list=adata.var.index.values.tolist(), gene_info=gene_info, by=by)
-
-        gene_scores_munge['Log2FC']=(gene_scores_munge['lfc']/np.log10(2)).round(2)
+        gene_scores_munge['Log2FC']=(gene_scores_munge['log_fold_change']/np.log10(2)).round(2)
 
         gene_scores_munge=gene_scores_munge[[
                                     'MarcoPolo_rank',
-                                    'Gene ID','Symbol',
-                                    'description', 'Other_designations', 'type_of_gene',
+                                    'Gene ID',
+                                    'Symbol', 'description', 'Other_designations', 'type_of_gene',
                                     'Log2FC',
                                     'MarcoPolo',
-                                    'bimodalityscore_rank',
-                                    'votingscore_rank',
-                                    'proximityscore_rank',
-                                    'minorsize','minorsize_rank',
+                                    'bimodality_score_rank',
+                                    'voting_score_rank',
+                                    'proximity_score_rank',
+                                    'oncell_size','oncell_size_rank',
                                     'dbXrefs'
                                    ]]
         gene_scores_munge['img'] = gene_scores_munge.apply(lambda x: '<img src="plot_image/{idx}.png" alt="{idx}">'.format(idx=x.name), axis=1)
 
     else:
-        gene_scores_munge['Log2FC'] = (gene_scores_munge['lfc'] / np.log10(2)).round(2)
+        gene_scores_munge['Log2FC'] = (gene_scores_munge['log_fold_change'] / np.log10(2)).round(2)
 
         gene_scores_munge=gene_scores_munge[[
                                     'MarcoPolo_rank',
@@ -349,7 +369,7 @@ def generate_report(adata: ad.AnnData, size_factor_key: Union[str, None], regres
                                     'bimodality_score_rank',
                                     'voting_score_rank',
                                     'proximity_score_rank',
-                                    'minorsize','minorsize_rank',
+                                    'oncell_size','oncell_size_rank',
                                    ]]
         gene_scores_munge['img']=gene_scores_munge.apply(lambda x: '<img src="plot_image/{idx}.png" alt="{idx}">'.format(idx=x.name),axis=1)
 
@@ -357,19 +377,18 @@ def generate_report(adata: ad.AnnData, size_factor_key: Union[str, None], regres
     ########################
     # Generate table files
     ########################
-    print(f"Generating table files")
-    generate_html_file(output_dir=output_dir, gene_scores=gene_scores_munge_voting, num_genes=num_genes, num_cells=num_cells, top_num_html=1000)
-    gene_scores_munge_voting[['Gene ID','Voting_genes_top10']].to_html('{}/voting.html'.format(output_dir))
+    print(f"Generating table files...")
+    generate_html_file(output_dir=output_dir, gene_scores=gene_scores_munge_voting, num_genes=num_genes, num_cells=num_cells, top_num_html=top_num_html)
+    gene_scores_munge_voting[['Gene ID','Voting_genes_top10']].to_html('{}/voting_result.html'.format(output_dir))
     gene_scores_munge.to_csv('{}.table.tsv'.format(output_dir), sep='\t')
 
     ########################
     # Generate image files
     ########################
-    print(f"Generating image files")
-    generate_image_files(expression_matrix=(expression_matrix.T / adata.obs[size_factor_key].values.astype(float)) if size_factor_key is not None else expression_matrix.T,
-                         gamma_argmax_list=gamma_argmax_list, gene_scores=gene_scores, cell_meta_info=adata.obs.copy(),
-                         low_dim_key1=low_dim_key1, low_dim_key2=low_dim_key2, output_dir=output_dir, top_num_image=top_num_image,
-                         cell_color_key=None,
+    print(f"Generating image files...")
+    generate_image_files(adata=adata, size_factor_key=size_factor_key, gamma_argmax_list=gamma_argmax_list, gene_scores=gene_scores,
+                         low_dim_key=low_dim_key, output_dir=output_dir, top_num_image=top_num_image,
+                         cell_color_key=cell_color_key,
                          **plot_parameters)
 
 

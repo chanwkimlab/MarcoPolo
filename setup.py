@@ -1,10 +1,13 @@
 from setuptools import setup, find_packages
 
+# python -m build
+# python3 -m twine upload --repository pypi dist/* --verbose
+
 setup(
   name = 'marcopolo-pytorch',
   packages = find_packages(exclude=[]),
   include_package_data = True,
-  version = '1.0.0',
+  version = '1.0.1',
   description = 'MarcoPolo - Pytorch',
   author = 'Chanwoo Kim',
   author_email = 'ch6845@gmail.com',
