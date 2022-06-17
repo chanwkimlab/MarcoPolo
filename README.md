@@ -41,15 +41,10 @@ Google colab is a free cloud-based environment for running Python code. Colab al
     and `top_num_figure` parameters.
   - If there are any two genes with the same MarcoPolo score, a gene with a larger fold change value is prioritized.
 
-The function outputs the two files:
-
-- report/hESC/index.html (MarcoPolo HTML report)
-- report/hESC/voting.html (For each gene, this file shows the top 10 genes of which on/off information is similar to the
-  gene.)
 
 ## Running MarcoPolo on your local machine
 ### How to install MarcoPolo
-We recommend using the following pipeline to install MarcoPolo.
+We recommend using the following pipeline to install MarcoPolo. 
 1. Anaconda
 
 Please refer to https://docs.anaconda.com/anaconda/install/linux/ to install Anaconda.
@@ -74,6 +69,9 @@ You can simply update MarcoPolo by using the `pip` command:
 ```bash
 pip install marcopolo-pytorch --upgrade
 ```
+
+### How to run MarcoPolo
+Please refer to this [notebook](https://github.com/chanwkimlab/MarcoPolo/blob/main/notebooks/MarcoPolo.ipynb) for the usage of MarcoPolo.
 
 ## Citation
 
