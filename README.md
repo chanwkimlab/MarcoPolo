@@ -3,6 +3,7 @@
 ![MarcoPolo](assets/mp.png)
 
 MarcoPolo is a method to discover differentially expressed genes in single-cell RNA-seq data without depending on prior clustering
+
 [![Stars](https://img.shields.io/github/stars/chanwkimlab/marcopolo?logo=GitHub&color=yellow)](https://github.com/chanwkim/marcopolo/stargazers)
 [![PyPI](https://img.shields.io/pypi/v/marcopolo-pytorch.svg)](https://pypi.org/project/marcopolo-pytorch)
 [![Downloads](https://pepy.tech/badge/marcopolo-pytorch)](https://pepy.tech/project/marcopolo-pytorch)
