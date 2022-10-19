@@ -4,7 +4,7 @@
 
 MarcoPolo is a method to discover differentially expressed genes in single-cell RNA-seq data without depending on prior clustering
 
-
+[![Downloads](https://pepy.tech/badge/marcopolo-pytorch)](https://pepy.tech/project/marcopolo-pytorch)
 
 ## Overview
 
